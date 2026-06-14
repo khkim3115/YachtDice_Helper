@@ -1,0 +1,22 @@
+// 가치 테이블 V 의 로드/인덱싱. V.bin = STATE_COUNT 길이의 raw Float32 (little-endian).
+
+import { STATE_COUNT, UPPER_LEVELS } from '../core/stateIndex';
+
+export type ValueTable = Float32Array;
+
+/** V[state] 조회. filledMask(12-bit) × upperCapped(0..63). */
+export function getV(table: ValueTable, filledMask: number, upperCapped: number): number {
+  return table[filledMask * UPPER_LEVELS + upperCapped];
+}
+
+/** 바이너리 자산에서 V 로드. 길이 검증 포함. */
+export async function loadValueTable(url: string): Promise<ValueTable> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`failed to load value table: ${res.status} ${url}`);
+  const buf = await res.arrayBuffer();
+  const table = new Float32Array(buf);
+  if (table.length !== STATE_COUNT) {
+    throw new Error(`value table size mismatch: got ${table.length}, expected ${STATE_COUNT}`);
+  }
+  return table;
+}
