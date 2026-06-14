@@ -4,6 +4,8 @@
 설정에서 **헬퍼**를 켜면, 게임 전체를 고려한 **진짜 최적 기댓값(EV)** 으로
 "지금 어떤 선택이 점수를 가장 높게 가져갈지"를 확률과 함께 알려줍니다.
 
+🔗 **라이브 데모**: <https://khkim3115.github.io/YachtDice_Helper/>
+
 React + Vite + TypeScript. 헬퍼 엔진은 Verhoeff 2단계 동적계획을 사용하며,
 가치 함수를 오프라인에서 사전계산해(~1MB) 브라우저에서는 매 결정마다 가벼운 턴 내부 DP만 돌립니다.
 
@@ -29,8 +31,10 @@ npm test           # vitest (채점·확률·솔버 정합성)
 ```
 
 ### 배포
+- **GitHub Pages (자동화 완료)**: `main` 에 푸시하면 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+  가 자동으로 빌드 후 게시 → <https://khkim3115.github.io/YachtDice_Helper/>.
+  `base` 가 `'./'`(상대 경로)라 하위 경로 게시에서도 그대로 동작합니다.
 - **Vercel**: 그대로 import → build 명령 `npm run build`, 출력 `dist`.
-- **GitHub Pages**: `vite.config.ts` 의 `base` 를 `'/YachtDice_Helper/'` 로 바꾸고 `dist` 를 배포.
 
 ## 게임 규칙 (한국 모바일 앱 관례)
 
