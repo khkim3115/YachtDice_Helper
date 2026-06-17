@@ -1,14 +1,10 @@
 import type { ReactNode } from 'react';
 import { CATEGORY_META } from '../core/rules';
 import type { Advice } from '../engine/advisor';
-import { useGameStore } from '../store/gameStore';
+import { useBoard } from '../store/useBoard';
 
 export function HelperPanel({ advice }: { advice: Advice | null }) {
-  const tableStatus = useGameStore((s) => s.tableStatus);
-  const rollsUsed = useGameStore((s) => s.rollsUsed);
-  const dice = useGameStore((s) => s.dice);
-  const showProbabilities = useGameStore((s) => s.settings.showProbabilities);
-  const gameOver = useGameStore((s) => s.gameOver());
+  const { tableStatus, rollsUsed, dice, showProbabilities, gameOver } = useBoard();
 
   let body: ReactNode;
 

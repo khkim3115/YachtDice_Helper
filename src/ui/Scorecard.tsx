@@ -3,20 +3,14 @@ import type { CategoryId } from '../core/rules';
 import { isCategoryFilled, upperBonus, upperSubtotal } from '../core/gameState';
 import { scoreDice } from '../core/scoring';
 import type { Advice, PerCategoryAdvice } from '../engine/advisor';
-import { useGameStore } from '../store/gameStore';
+import { useBoard } from '../store/useBoard';
 
 const UPPER_IDS = CATEGORY_IDS.filter((id) => CATEGORY_META[id].section === 'upper');
 const LOWER_IDS = CATEGORY_IDS.filter((id) => CATEGORY_META[id].section === 'lower');
 
 export function Scorecard({ advice }: { advice: Advice | null }) {
-  const card = useGameStore((s) => s.card);
-  const dice = useGameStore((s) => s.dice);
-  const rollsUsed = useGameStore((s) => s.rollsUsed);
-  const rules = useGameStore((s) => s.rules);
-  const helperEnabled = useGameStore((s) => s.settings.helperEnabled);
-  const highlight = useGameStore((s) => s.settings.highlightSuggestion);
-  const assign = useGameStore((s) => s.assign);
-  const gameOver = useGameStore((s) => s.gameOver());
+  const { card, dice, rollsUsed, rules, helperEnabled, highlightSuggestion: highlight, readOnly, assign, gameOver } =
+    useBoard();
 
   const rolled = rollsUsed > 0;
   const rerollsLeft = 3 - rollsUsed;
@@ -33,7 +27,7 @@ export function Scorecard({ advice }: { advice: Advice | null }) {
   function Row({ id }: { id: CategoryId }) {
     const meta = CATEGORY_META[id];
     const filled = isCategoryFilled(card, id);
-    const canAssign = rolled && !gameOver && !filled;
+    const canAssign = rolled && !gameOver && !filled && !readOnly;
     const preview = rolled ? scoreDice(id, dice, rules) : null;
     const adv = perCat.get(id);
     const showEv = !!adv && helperEnabled && rolled && rerollsLeft > 0 && !filled;
@@ -45,7 +39,7 @@ export function Scorecard({ advice }: { advice: Advice | null }) {
     return (
       <div
         className={cls}
-        onClick={!filled && !gameOver ? () => assign(id) : undefined}
+        onClick={!readOnly && !filled && !gameOver ? () => assign(id) : undefined}
         role={canAssign ? 'button' : undefined}
       >
         <div className="sc-name">

@@ -1,6 +1,7 @@
 # 🎲 Yacht Dice Helper (요트다이스)
 
-웹에서 즐기는 **요트다이스(Yacht Dice)** 솔로 점수 도전 게임.
+웹에서 즐기는 **요트다이스(Yacht Dice)** 게임. **혼자 하기**(솔로 점수 도전)와
+**온라인 멀티플레이**(방 만들기 + 초대코드로 턴제 경쟁)를 지원합니다.
 설정에서 **헬퍼**를 켜면, 게임 전체를 고려한 **진짜 최적 기댓값(EV)** 으로
 "지금 어떤 선택이 점수를 가장 높게 가져갈지"를 확률과 함께 알려줍니다.
 
@@ -35,6 +36,33 @@ npm test           # vitest (채점·확률·솔버 정합성)
   가 자동으로 빌드 후 게시 → <https://khkim3115.github.io/YachtDice_Helper/>.
   `base` 가 `'./'`(상대 경로)라 하위 경로 게시에서도 그대로 동작합니다.
 - **Vercel**: 그대로 import → build 명령 `npm run build`, 출력 `dist`.
+
+## 🌐 온라인 멀티플레이 (방 + 초대코드)
+
+홈 화면에서 **방을 만들고 초대코드**로 친구를 초대해 **턴제 경쟁**(각자 점수판, 차례대로 굴리고 카테고리 선택,
+12라운드 후 최고점 승리)을 즐길 수 있습니다. 최대 4명, 방장이 헬퍼 허용 여부를 선택합니다.
+
+정적 프론트엔드(GitHub Pages)는 그대로 두고, 실시간 동기화·방 관리는 **Supabase**(Postgres + Realtime + 익명 로그인)가
+담당합니다. 서버가 권위(주사위는 서버 RNG, 모든 변경은 `SECURITY DEFINER` RPC, 클라이언트 직접 쓰기 차단 + RLS)를 가집니다.
+
+### 환경변수 (둘 다 공개용 — anon 키는 RLS 로 보호됨)
+로컬은 `.env.local`(이미 `.gitignore` 처리됨)에:
+
+```
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon public key>
+```
+
+> `service_role` 키는 **절대** 넣지 마세요(RLS 우회). 멀티플레이 값이 없으면 솔로는 정상 동작하고 멀티 UI 만 비활성화됩니다.
+
+### Supabase 설정 (1회)
+1. 프로젝트 생성 후 **Authentication → Sign In / Providers → Anonymous sign-ins 활성화**. *(필수 — 없으면 입장 시 "익명 로그인이 비활성화" 오류)*
+2. DB 스키마/RLS/RPC/Realtime 마이그레이션 적용 (이 저장소 작업 시 Supabase MCP 로 적용됨).
+3. **Authentication → URL Configuration** 의 Site URL 목록에 `https://khkim3115.github.io` 추가.
+
+### GitHub Pages 배포에 주입
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) 의 빌드 스텝이 두 값을 **repo Variables** 에서 읽습니다.
+**Settings → Secrets and variables → Actions → Variables** 에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 를 추가하세요.
 
 ## 🖥️ 작업표시줄에서 플레이하기 (PWA 설치)
 

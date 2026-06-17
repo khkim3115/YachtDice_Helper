@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { grandTotal } from '../core/gameState';
+import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 import { useAdvice } from '../store/useAdvice';
 import { DiceTray } from './DiceTray';
@@ -21,6 +22,7 @@ export default function App() {
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const theme = useGameStore((s) => s.theme);
   const toggleTheme = useGameStore((s) => s.toggleTheme);
+  const setScreen = useAppStore((s) => s.setScreen);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -58,6 +60,9 @@ export default function App() {
           <span className="sub">요트다이스</span>
         </div>
         <div className="topbar-right">
+          <button className="theme-btn" onClick={() => setScreen('home')} aria-label="메뉴" title="메뉴로">
+            🏠
+          </button>
           <div className="score-pill">
             <span className="label">총점</span>
             <span className="value">{total}</span>

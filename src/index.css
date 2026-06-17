@@ -945,3 +945,426 @@ button:disabled {
   background: var(--surface-3);
   color: var(--text);
 }
+
+/* ── 홈(모드 선택) ──────────────────────────────────── */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.home-solo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  padding: 22px;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  box-shadow: 0 8px 18px var(--accent-glow);
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+.home-solo:hover {
+  filter: brightness(1.05);
+}
+.home-solo:active {
+  transform: translateY(2px);
+}
+.home-solo .hs-icon {
+  font-size: 34px;
+}
+.home-solo .hs-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.home-solo .hs-text b {
+  font-size: 18px;
+}
+.home-solo .hs-text small {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.home-mp {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+.home-mp h2 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.mp-disabled {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.field span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.field input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+.field input:focus {
+  border-color: var(--accent);
+}
+.mp-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 640px) {
+  .mp-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.mp-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mp-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.mp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+}
+.seg {
+  display: flex;
+  gap: 4px;
+}
+.seg button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.seg button.on {
+  background: var(--accent);
+  color: #fff;
+}
+.mp-primary {
+  margin-top: auto;
+  padding: 12px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+.mp-primary:not(:disabled):hover {
+  filter: brightness(1.07);
+}
+.mp-error {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid var(--bad);
+  color: var(--bad);
+  font-size: 13px;
+}
+.mp-error.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 70;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
+/* ── 대기실 ─────────────────────────────────────────── */
+.lobby {
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.lobby-leave {
+  flex: none;
+  width: auto;
+  padding: 9px 16px;
+  font-size: 14px;
+}
+.lobby-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  padding: 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.lc-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.lc-code {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.lc-copy {
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.lc-copy:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.lobby-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lobby-players {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lp-slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.lp-slot.empty {
+  border-style: dashed;
+  opacity: 0.7;
+}
+.lp-seat {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.lp-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.lp-host,
+.lp-you {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.lp-host {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+.lp-you {
+  background: var(--accent);
+  color: #fff;
+}
+.lp-waiting {
+  color: var(--faint);
+  font-size: 13px;
+}
+.lobby-wait {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 10px;
+}
+
+/* ── 턴 배너 ────────────────────────────────────────── */
+.turn-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.turn-banner.mine {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.tb-round {
+  font-size: 13px;
+  color: var(--muted);
+}
+.tb-turn {
+  font-size: 16px;
+  font-weight: 700;
+}
+.turn-banner.mine .tb-turn {
+  color: var(--gold);
+}
+
+/* ── 멀티 점수표 라벨 + 미니 카드 ───────────────────── */
+.mp-active-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.minis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.mini {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+.mini.current {
+  border-color: var(--gold);
+}
+.mini.offline {
+  opacity: 0.55;
+}
+.mini-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mini-name {
+  font-weight: 700;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mini-total {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.mini-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin: 8px 0 6px;
+}
+.mini-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  transition: width 0.3s ease;
+}
+.mini-foot {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mini-turn {
+  color: var(--gold);
+  font-weight: 700;
+}
+.mini-off {
+  color: var(--bad);
+}
+
+/* ── 멀티 결과 순위 ─────────────────────────────────── */
+.mp-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 18px 0;
+  text-align: left;
+}
+.mpr-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+}
+.mpr-row.win {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+}
+.mpr-row.me .mpr-name {
+  color: var(--accent);
+}
+.mpr-rank {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mpr-row.win .mpr-rank {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+.mpr-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.mpr-total {
+  font-size: 18px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
