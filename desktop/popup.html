@@ -84,13 +84,34 @@
       .overcard .ko { color: var(--mut); font-size: 11px; margin: 4px 0 12px; }
       .again { border: 1px solid var(--line); border-radius: 5px; padding: 7px 18px; font-weight: 600; color: var(--txt); cursor: pointer; background: var(--panel2); }
       .again:hover { background: var(--panel3); }
+
+      /* ── 리더보드 ── */
+      .top-btns { display: flex; align-items: center; gap: 2px; }
+      .lb-reg { margin: 12px auto 0; display: flex; flex-direction: column; gap: 5px; width: 152px; }
+      .lb-input { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; color: var(--txt); padding: 5px 7px; font-size: 11px; font-family: inherit; outline: none; text-align: center; }
+      .lb-input:focus { border-color: #56565f; }
+      .lb-btn { border: 1px solid var(--line); border-radius: 4px; background: var(--panel2); color: var(--txt); padding: 5px; font-size: 11px; font-weight: 600; cursor: pointer; }
+      .lb-btn:hover { background: var(--panel3); }
+      .lb-btn:disabled { opacity: 0.5; cursor: default; }
+      .lb-msg { font-size: 10px; color: var(--mut); min-height: 12px; text-align: center; }
+      .lbcard { width: 232px; max-height: 320px; display: flex; flex-direction: column; gap: 8px; }
+      .lbtitle { font-size: 12px; font-weight: 700; color: var(--emph); text-align: center; }
+      .lblist { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
+      .lbrow { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 6px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font-size: 11px; }
+      .lbrank { color: var(--mut); font-size: 10px; font-weight: 700; text-align: center; }
+      .lbnm { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lbsc { color: var(--emph); font-weight: 700; font-variant-numeric: tabular-nums; }
+      .lb-load { color: var(--mut); font-size: 11px; text-align: center; padding: 16px 0; }
     </style>
   </head>
   <body>
     <div id="app">
       <div class="top">
         <span class="logo">설정</span>
-        <button class="x" id="close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        <div class="top-btns">
+          <button class="x" id="lb-open" title="리더보드" tabindex="-1">🏆</button>
+          <button class="x" id="close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        </div>
       </div>
       <div class="dice" id="dice"></div>
       <button class="roll" id="roll" tabindex="-1">굴리기</button>
@@ -107,6 +128,19 @@
         <div class="big" id="final">0</div>
         <div class="ko">완료</div>
         <button class="again" id="again" tabindex="-1">다시<span class="k">Enter</span></button>
+        <div class="lb-reg">
+          <input class="lb-input" id="lb-name" maxlength="24" placeholder="닉네임" />
+          <button class="lb-btn" id="lb-submit" tabindex="-1">🏆 리더보드 등록</button>
+          <div class="lb-msg" id="lb-msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="over hidden" id="lb-over">
+      <div class="lbcard">
+        <div class="lbtitle">🏆 리더보드 Top 10</div>
+        <div class="lblist" id="lb-list"></div>
+        <button class="again" id="lb-close" tabindex="-1">닫기<span class="k">Esc</span></button>
       </div>
     </div>
 
@@ -180,10 +214,19 @@
       function bonus() { return upperSub() >= 63 ? 35 : 0; }
       function total() { return Object.values(state.filled).reduce((a, b) => a + b, 0) + bonus(); }
 
+      let finalScore = 0;
       function gameOver() {
         render();
-        document.getElementById('final').textContent = total();
+        finalScore = total();
+        document.getElementById('final').textContent = finalScore;
         document.getElementById('over').classList.remove('hidden');
+        // 리더보드 등록 UI 초기화(데스크톱은 헬퍼가 없어 항상 등록 가능).
+        const msg = document.getElementById('lb-msg');
+        const btn = document.getElementById('lb-submit');
+        const nm = document.getElementById('lb-name');
+        if (msg) msg.textContent = '';
+        if (btn) btn.disabled = false;
+        try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || ''; } catch {}
       }
 
       const diceEl = document.getElementById('dice');
@@ -230,12 +273,85 @@
       const hidePopup = () => (window.yd ? window.yd.hide() : window.close());
       document.getElementById('close').onclick = hidePopup;
 
+      // ── 리더보드(Supabase REST 직접 호출, 익명 anon 키) ──
+      // publishable 키는 공개용 — 커밋·배포 안전(service_role 아님).
+      const SB_URL = 'https://wrdeqbqwxnmjsbwwnatx.supabase.co';
+      const SB_KEY = 'sb_publishable_3QuWFZBMzYOdMpfkMjROtw_FBex-xM6';
+      const SB_HEADERS = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+      const nameInput = document.getElementById('lb-name');
+      const submitBtn = document.getElementById('lb-submit');
+      const msgEl = document.getElementById('lb-msg');
+      const lbOver = document.getElementById('lb-over');
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      async function submitScore() {
+        const nm = nameInput.value.trim();
+        if (!nm) { nameInput.focus(); return; }
+        submitBtn.disabled = true;
+        msgEl.textContent = '등록 중…';
+        try {
+          const res = await fetch(SB_URL + '/rest/v1/rpc/submit_score', {
+            method: 'POST',
+            headers: SB_HEADERS,
+            body: JSON.stringify({ p_nickname: nm, p_score: finalScore, p_mode: 'desktop' }),
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          try { localStorage.setItem('yd_lb_name', nm); } catch {}
+          msgEl.textContent = '✓ 등록 완료';
+        } catch (err) {
+          msgEl.textContent = '실패 (오프라인?)';
+          submitBtn.disabled = false;
+        }
+      }
+
+      async function openLb() {
+        const list = document.getElementById('lb-list');
+        lbOver.classList.remove('hidden');
+        list.innerHTML = '<div class="lb-load">불러오는 중…</div>';
+        try {
+          const res = await fetch(
+            SB_URL + '/rest/v1/leaderboard?select=nickname,score,mode&order=score.desc,created_at.asc&limit=10',
+            { headers: SB_HEADERS },
+          );
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const rows = await res.json();
+          if (!rows.length) { list.innerHTML = '<div class="lb-load">아직 기록이 없습니다.</div>'; return; }
+          list.innerHTML = rows
+            .map((r, i) =>
+              `<div class="lbrow"><span class="lbrank">${i + 1}</span>` +
+              `<span class="lbnm">${escapeHtml(r.nickname)}</span>` +
+              `<span class="lbsc">${r.score}</span></div>`)
+            .join('');
+        } catch (err) {
+          list.innerHTML = '<div class="lb-load">불러오기 실패 (오프라인?)</div>';
+        }
+      }
+      const closeLb = () => lbOver.classList.add('hidden');
+
+      submitBtn.onclick = submitScore;
+      document.getElementById('lb-open').onclick = openLb;
+      document.getElementById('lb-close').onclick = closeLb;
+
       // ── 키보드 단축키 ──
       document.addEventListener('keydown', (e) => {
+        // 리더보드 오버레이가 떠 있으면 Esc/Enter 로 닫기(창은 유지).
+        if (!lbOver.classList.contains('hidden')) {
+          if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); closeLb(); }
+          return;
+        }
         if (e.key === 'Escape') { e.preventDefault(); hidePopup(); return; }
         const overOpen = !document.getElementById('over').classList.contains('hidden');
         if (overOpen) {
-          if (e.key === 'Enter') { e.preventDefault(); reset(); }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            // 닉네임 입력 중 Enter → 등록, 그 외 → 새 게임.
+            if (document.activeElement === nameInput) submitScore();
+            else reset();
+          }
           return;
         }
         if (e.code === 'Space') { e.preventDefault(); roll(); return; }

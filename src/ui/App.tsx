@@ -23,11 +23,17 @@ export default function App() {
   const theme = useGameStore((s) => s.theme);
   const toggleTheme = useGameStore((s) => s.toggleTheme);
   const setScreen = useAppStore((s) => s.setScreen);
+  const markHelperUsed = useGameStore((s) => s.markHelperUsed);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const advice = useAdvice();
   const total = grandTotal(card, rules);
+
+  // 조언이 실제로 표시되는 순간 "헬퍼 사용"으로 기록(리더보드 등록 자격 판단).
+  useEffect(() => {
+    if (advice) markHelperUsed();
+  }, [advice, markHelperUsed]);
 
   // 헬퍼 데이터는 백그라운드로 미리 받아둔다(토글 시 즉시 동작).
   useEffect(() => {

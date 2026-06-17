@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { CATEGORY_IDS, CATEGORY_META } from '../core/rules';
 import type { CategoryId } from '../core/rules';
 import { grandTotal, lowerSubtotal, upperBonus, upperSubtotal } from '../core/gameState';
 import { useGameStore } from '../store/gameStore';
+import { SubmitScoreModal } from './SubmitScoreModal';
 
 /** 기본 룰 최적 플레이 평균(사전계산 결과, src/precompute 출력). */
 const OPTIMAL_AVG = 192;
@@ -13,6 +15,8 @@ export function GameOver() {
   const rules = useGameStore((s) => s.rules);
   const newGame = useGameStore((s) => s.newGame);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
+  const helperUsedThisGame = useGameStore((s) => s.helperUsedThisGame);
+  const [submitOpen, setSubmitOpen] = useState(false);
 
   const total = grandTotal(card, rules);
   const sub = upperSubtotal(card);
@@ -69,6 +73,12 @@ export function GameOver() {
           </div>
         </div>
 
+        {!helperUsedThisGame && (
+          <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
+            🏆 리더보드 등록
+          </button>
+        )}
+
         <div className="go-actions">
           <button className="ghost-btn" onClick={() => setResultOpen(false)}>
             점수표 보기
@@ -78,6 +88,24 @@ export function GameOver() {
           </button>
         </div>
       </div>
+
+      {submitOpen && (
+        <SubmitScoreModal
+          score={total}
+          mode="solo"
+          defaultName={savedName()}
+          onClose={() => setSubmitOpen(false)}
+        />
+      )}
     </div>
   );
+}
+
+/** 마지막으로 쓴 닉네임(멀티와 공유). 사용 불가 환경이면 빈 문자열. */
+function savedName(): string {
+  try {
+    return localStorage.getItem('yd_mp_name') ?? '';
+  } catch {
+    return '';
+  }
 }

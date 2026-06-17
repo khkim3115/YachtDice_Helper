@@ -56,6 +56,17 @@ export function Home() {
           </span>
         </button>
 
+        <button
+          className="home-solo home-leaderboard"
+          onClick={() => setScreen('leaderboard')}
+        >
+          <span className="hs-icon">🏆</span>
+          <span className="hs-text">
+            <b>리더보드</b>
+            <small>헬퍼 없이 달성한 Top 10 점수</small>
+          </span>
+        </button>
+
         <div className="home-mp">
           <h2>온라인 멀티플레이</h2>
 

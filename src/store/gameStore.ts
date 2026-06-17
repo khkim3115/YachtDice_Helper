@@ -33,6 +33,8 @@ interface GameStore {
   tableStatus: TableStatus;
   /** 게임 종료 결과 팝업 표시 여부. */
   resultOpen: boolean;
+  /** 이번 게임에서 헬퍼 조언이 한 번이라도 표시됐는지(리더보드 등록 자격 판단). newGame 시 리셋. */
+  helperUsedThisGame: boolean;
   /** 현재 테마(다크/라이트). */
   theme: ThemeMode;
 
@@ -48,6 +50,8 @@ interface GameStore {
   newGame: () => void;
   setSettings: (patch: Partial<Settings>) => void;
   setResultOpen: (open: boolean) => void;
+  /** 헬퍼 조언이 실제 표시됐음을 기록(useAdvice 가 non-null 일 때 호출). */
+  markHelperUsed: () => void;
   setTheme: (mode: ThemeMode) => void;
   toggleTheme: () => void;
 }
@@ -82,6 +86,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   advisor: null,
   tableStatus: 'idle',
   resultOpen: false,
+  helperUsedThisGame: false,
   theme: getInitialTheme(),
 
   rerollsLeft: () => ROLLS_PER_TURN - get().rollsUsed,
@@ -151,6 +156,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       held: Array(DICE_COUNT).fill(false),
       rollsUsed: 0,
       resultOpen: false,
+      helperUsedThisGame: false,
     });
   },
 
@@ -162,6 +168,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setResultOpen: (open) => set({ resultOpen: open }),
+
+  markHelperUsed: () => {
+    if (!get().helperUsedThisGame) set({ helperUsedThisGame: true });
+  },
 
   setTheme: (mode) => {
     applyTheme(mode);

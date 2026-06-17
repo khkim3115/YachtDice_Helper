@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { DEFAULT_RULES } from '../core/rules';
 import { grandTotal } from '../core/gameState';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
+import { SubmitScoreModal } from './SubmitScoreModal';
 
 export function MpGameOver() {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -9,11 +11,16 @@ export function MpGameOver() {
   const players = useMultiplayerStore((s) => s.players);
   const myUserId = useMultiplayerStore((s) => s.myUserId);
   const leave = useMultiplayerStore((s) => s.leave);
+  const [submitOpen, setSubmitOpen] = useState(false);
   if (!room) return null;
 
   const ranked = players
     .map((p) => ({ p, total: grandTotal(p.scorecard, DEFAULT_RULES) }))
     .sort((a, b) => b.total - a.total);
+
+  // 헬퍼 비허용 방에서만 내 점수를 리더보드에 등록할 수 있다.
+  const me = ranked.find((r) => r.p.userId === myUserId);
+  const canRegister = !room.helperAllowed && !!me;
 
   async function onHome() {
     await leave();
@@ -47,10 +54,25 @@ export function MpGameOver() {
           ))}
         </div>
 
+        {canRegister && (
+          <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
+            🏆 리더보드 등록 (내 점수 {me.total})
+          </button>
+        )}
+
         <button className="again-btn" onClick={() => void onHome()}>
           홈으로
         </button>
       </div>
+
+      {submitOpen && me && (
+        <SubmitScoreModal
+          score={me.total}
+          mode="multi"
+          defaultName={me.p.displayName}
+          onClose={() => setSubmitOpen(false)}
+        />
+      )}
     </div>
   );
 }
