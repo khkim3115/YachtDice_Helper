@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
+import { DownloadCards } from './DownloadCards';
 
 const MAX_OPTIONS = [2, 3, 4];
 
@@ -149,6 +150,8 @@ export function Home() {
             </>
           )}
         </div>
+
+        <DownloadCards />
       </div>
     </div>
   );

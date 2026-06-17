@@ -1457,3 +1457,97 @@ button:disabled {
   text-align: center;
   margin: 8px 0 4px;
 }
+
+/* ── 홈: 앱으로 받기(다운로드) ───────────────────────── */
+.home-downloads {
+  margin-top: 20px;
+}
+.home-downloads h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.dl-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .dl-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.dl-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+.dl-icon {
+  font-size: 26px;
+  flex: none;
+}
+.dl-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.dl-text b {
+  font-size: 15px;
+}
+.dl-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.dl-text .dl-os {
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.dl-btn {
+  flex: none;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.dl-btn:hover {
+  filter: brightness(1.07);
+}
+.dl-btn:disabled {
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: default;
+  filter: none;
+}
+.dl-guide {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.dl-guide b {
+  color: var(--text);
+}
