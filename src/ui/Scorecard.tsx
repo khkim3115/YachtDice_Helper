@@ -61,7 +61,12 @@ export function Scorecard({ advice }: { advice: Advice | null }) {
             </span>
           )}
           {filled ? (
-            <span className="sc-points locked">{card.scores[id]}</span>
+            <>
+              <span className="sc-check" aria-label="기록됨">
+                ✓
+              </span>
+              <span className="sc-points locked">{card.scores[id]}</span>
+            </>
           ) : preview === null ? (
             <span className="sc-empty">–</span>
           ) : (

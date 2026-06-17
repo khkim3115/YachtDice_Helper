@@ -308,14 +308,28 @@ button:disabled {
   background: var(--surface-2);
   transition: background 0.1s ease, border-color 0.1s ease;
 }
+/* 빈 칸: 지금 누를 수 있는 셀처럼 또렷하게 (테두리 + hover 강조). */
 .sc-row.open {
   cursor: pointer;
+  border-color: var(--border);
 }
 .sc-row.open:hover {
   background: var(--surface-3);
+  border-color: var(--accent);
 }
+/* 기록된 칸: 패널에 가라앉은 "완료" 룩. 전체를 흐리게 하던 opacity 대신 다중 단서로 구분. */
 .sc-row.filled {
-  opacity: 0.62;
+  background: var(--bg-2);
+  border-color: transparent;
+}
+.sc-row.filled .sc-name .ko {
+  color: var(--faint);
+}
+/* 기록 완료 체크표시(색 외 단서 — 색약 사용자 고려). */
+.sc-check {
+  color: var(--good);
+  font-size: 13px;
+  font-weight: 700;
 }
 .sc-row.recommend {
   border-color: var(--gold);
@@ -358,7 +372,7 @@ button:disabled {
   color: var(--faint);
 }
 .sc-points.locked {
-  color: var(--text);
+  color: var(--gold);
 }
 .sc-ev {
   font-size: 11px;
@@ -707,4 +721,102 @@ button:disabled {
   color: white;
   font-weight: 700;
   font-size: 16px;
+}
+
+/* ── 도움말 ─────────────────────────────────────────── */
+.help-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+}
+.help-btn:hover {
+  background: var(--surface-2);
+}
+
+.help {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 14, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 55;
+  backdrop-filter: blur(3px);
+}
+.help-card {
+  width: min(560px, 92vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  text-align: left;
+}
+.help-card h3 {
+  margin: 0 0 14px;
+}
+.help-card h4 {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.help-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+.help-card p b {
+  color: var(--text);
+}
+.help-list,
+.help-steps {
+  margin: 0 0 4px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.help-list b {
+  color: var(--text);
+}
+.help-rule {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  margin-bottom: 4px;
+}
+.help-rule .name {
+  font-weight: 600;
+}
+.help-rule .en {
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 400;
+}
+.help-rule .pts {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.help-close {
+  margin-top: 18px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
 }

@@ -6,6 +6,7 @@ import { DiceTray } from './DiceTray';
 import { Scorecard } from './Scorecard';
 import { HelperPanel } from './HelperPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { HelpPanel } from './HelpPanel';
 import { GameOver } from './GameOver';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
   const resultOpen = useGameStore((s) => s.resultOpen);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const advice = useAdvice();
   const total = grandTotal(card, rules);
@@ -25,6 +27,24 @@ export default function App() {
   useEffect(() => {
     void loadTable();
   }, [loadTable]);
+
+  // 처음 방문한 사용자에게는 도움말을 한 번 자동으로 띄운다.
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem('yd_seen_guide')) setHelpOpen(true);
+    } catch {
+      // localStorage 사용 불가(사파리 사생활 모드 등) — 자동 표시만 생략.
+    }
+  }, []);
+
+  const handleHelpClose = () => {
+    setHelpOpen(false);
+    try {
+      localStorage.setItem('yd_seen_guide', '1');
+    } catch {
+      // 저장 실패는 무시(다음 방문에 다시 떠도 무방).
+    }
+  };
 
   return (
     <div className="app">
@@ -43,6 +63,9 @@ export default function App() {
               🏁 결과
             </button>
           )}
+          <button className="help-btn" onClick={() => setHelpOpen(true)} aria-label="도움말">
+            ❓
+          </button>
           <button className="gear" onClick={() => setSettingsOpen(true)} aria-label="설정">
             ⚙️
           </button>
@@ -61,6 +84,7 @@ export default function App() {
         </div>
       </div>
 
+      {helpOpen && <HelpPanel onClose={handleHelpClose} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       {gameOver && resultOpen && <GameOver />}
     </div>
