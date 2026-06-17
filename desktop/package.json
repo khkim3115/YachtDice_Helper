@@ -35,6 +35,7 @@
       "icon": "build/icon.png"
     },
     "nsis": {
+      "artifactName": "YachtDice-Tray-Setup.exe",
       "oneClick": true,
       "perMachine": false,
       "createDesktopShortcut": true,
