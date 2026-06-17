@@ -815,7 +815,7 @@ button:disabled {
   backdrop-filter: blur(3px);
 }
 .help-card {
-  width: min(560px, 92vw);
+  width: min(720px, 92vw);
   max-height: 92vh;
   overflow-y: auto;
   background: var(--surface);
