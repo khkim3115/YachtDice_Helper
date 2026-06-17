@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { DownloadCards } from './DownloadCards';
+import { Header } from './Header';
 
 const MAX_OPTIONS = [2, 3, 4];
 
@@ -41,12 +42,7 @@ export function Home() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <h1>YACHT DICE</h1>
-          <span className="sub">요트다이스</span>
-        </div>
-      </div>
+      <Header title="YACHT DICE" subtitle="요트다이스" />
 
       <div className="home">
         <button className="home-solo" onClick={() => setScreen('solo')}>
