@@ -4,6 +4,7 @@ import App from './ui/App';
 import { Home } from './ui/Home';
 import { Lobby } from './ui/Lobby';
 import { MultiplayerGame } from './ui/MultiplayerGame';
+import { Leaderboard } from './ui/Leaderboard';
 import { useAppStore } from './store/appStore';
 import './index.css';
 
@@ -16,6 +17,8 @@ function Root() {
       return <Lobby />;
     case 'mpgame':
       return <MultiplayerGame />;
+    case 'leaderboard':
+      return <Leaderboard />;
     default:
       return <Home />;
   }

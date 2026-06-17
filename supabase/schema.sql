@@ -393,6 +393,41 @@ begin
     or (status = 'playing'   and updated_at < now() - interval '6 hours');
 end $$;
 
+-- ── 리더보드(Top10 글로벌 랭킹) ──────────────────────────────────────────
+-- 솔로/멀티/데스크톱 공용 단일 보드. 읽기는 공개(select), 쓰기는 submit_score RPC 만.
+-- 룸과 달리 솔로·데스크톱 점수는 서버 검증이 불가 → 클라이언트 신뢰 기반(캐주얼).
+-- score CHECK 로 비현실적 값만 차단(기본 룰 실제 최대 ≈ 323).
+create table public.leaderboard (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid,                                    -- 익명(미로그인) 호출 시 null 허용
+  nickname    text not null check (char_length(nickname) between 1 and 24),
+  score       int  not null check (score between 0 and 1000),
+  mode        text not null check (mode in ('solo','multi','desktop')),
+  created_at  timestamptz not null default now()
+);
+create index leaderboard_rank_idx on public.leaderboard (score desc, created_at asc);
+
+alter table public.leaderboard enable row level security;
+create policy leaderboard_select_public on public.leaderboard
+  for select to anon, authenticated using (true);
+revoke insert, update, delete on public.leaderboard from anon, authenticated;
+grant  select on public.leaderboard to anon, authenticated;
+
+-- 점수 제출 + Top10 초과분 정리(= 10개만 저장). anon/authenticated 모두 호출 가능.
+create or replace function public.submit_score(p_nickname text, p_score int, p_mode text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if char_length(coalesce(p_nickname,'')) = 0 then raise exception 'nickname required'; end if;
+  if p_score < 0 or p_score > 1000 then raise exception 'score out of range'; end if;
+  if p_mode not in ('solo','multi','desktop') then raise exception 'invalid mode'; end if;
+  insert into public.leaderboard(user_id, nickname, score, mode)
+    values (auth.uid(), left(p_nickname,24), p_score, p_mode);
+  -- 점수 desc, 동점은 먼저 등록한 순(created_at asc)으로 Top10 만 남기고 삭제.
+  delete from public.leaderboard where id not in (
+    select id from public.leaderboard order by score desc, created_at asc limit 10
+  );
+end $$;
+
 -- ── 실행 권한: 전부 회수 후 사용자용 RPC만 authenticated 부여 ─────────────
 revoke execute on all functions in schema public from public;
 revoke execute on all functions in schema public from anon;
@@ -412,6 +447,9 @@ to authenticated;
 -- RLS select 정책(rooms/room_players)이 호출하므로 authenticated 가 실행할 수 있어야 함.
 -- (realtime postgres_changes 인가에도 필요)
 grant execute on function public.is_room_member(uuid) to authenticated;
+
+-- 리더보드 제출: 익명(미로그인) 사용자도 호출 가능(웹/데스크톱 공용).
+grant execute on function public.submit_score(text, int, text) to anon, authenticated;
 
 -- ── Realtime (Postgres Changes) ──────────────────────────────────────────
 alter publication supabase_realtime add table public.rooms;
