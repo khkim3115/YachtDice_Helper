@@ -13,8 +13,8 @@ const ICON_PATH = app.isPackaged
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 
 // 아주 작은 팝업.
-const PANEL_WIDTH = 300;
-const PANEL_HEIGHT = 430;
+const PANEL_WIDTH = 270;
+const PANEL_HEIGHT = 358;
 
 let tray = null;
 let win = null;

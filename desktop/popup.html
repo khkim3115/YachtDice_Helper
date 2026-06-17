@@ -3,18 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yacht</title>
+    <title>설정</title>
     <style>
+      /* 눈에 띄지 않게 — 어두운 단색(검정/회색)만. 파랑/노랑/초록 없음. */
       :root {
-        --bg: #07090f;
-        --panel: #11151f;
-        --panel2: #181d2a;
-        --line: #232a3a;
-        --txt: #e8ecf7;
-        --mut: #8893ac;
-        --acc: #6c8cff;
-        --gold: #ffc24a;
-        --good: #46d98a;
+        --bg: #0b0b0d;
+        --panel: #151518;
+        --panel2: #1d1d21;
+        --panel3: #26262b;
+        --line: #2a2a2f;
+        --txt: #c6c6cd;
+        --mut: #71717a;
+        --emph: #d7d7de;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; }
@@ -25,70 +25,65 @@
         user-select: none;
         -webkit-user-select: none;
       }
-      #app { display: flex; flex-direction: column; height: 100vh; padding: 8px 9px 9px; gap: 7px; }
+      #app { display: flex; flex-direction: column; height: 100vh; padding: 7px 8px 8px; gap: 6px; }
 
       .top { display: flex; align-items: center; justify-content: space-between; }
-      .logo { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--mut); }
-      .x {
-        border: none; background: transparent; color: var(--mut); font-size: 12px;
-        cursor: pointer; padding: 2px 4px; line-height: 1;
-      }
+      .logo { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--mut); }
+      .x { border: none; background: transparent; color: var(--mut); font-size: 11px; cursor: pointer; padding: 2px 4px; line-height: 1; }
       .x:hover { color: var(--txt); }
 
-      .dice { display: flex; gap: 5px; justify-content: center; }
+      .dice { display: flex; gap: 4px; justify-content: center; }
       .die {
-        width: 34px; height: 34px; border-radius: 7px;
-        background: linear-gradient(160deg, #fff, #e7ebfb);
-        border: 2px solid transparent; cursor: pointer; flex: none;
-        display: grid; place-items: center; font-size: 18px; font-weight: 800; color: #141a2b;
+        width: 30px; height: 30px; border-radius: 5px;
+        background: var(--panel2); border: 1px solid var(--line); color: var(--emph);
+        display: grid; place-items: center; font-size: 15px; font-weight: 700;
+        cursor: pointer; flex: none;
       }
-      .die.empty { background: var(--panel2); color: transparent; }
-      .die.held { border-color: var(--acc); transform: translateY(2px); }
+      .die.empty { color: transparent; background: var(--panel); }
+      .die.held { border-color: #56565f; background: var(--panel3); }
 
       .roll {
-        border: none; border-radius: 8px; padding: 9px; font-size: 13px; font-weight: 700;
-        color: #fff; cursor: pointer;
-        background: linear-gradient(160deg, var(--acc), #4f6fff);
+        border: 1px solid var(--line); border-radius: 5px; padding: 7px; font-size: 12px; font-weight: 600;
+        color: var(--txt); cursor: pointer; background: var(--panel2);
       }
-      .roll:disabled { opacity: 0.4; cursor: default; }
+      .roll:hover { background: var(--panel3); }
+      .roll:disabled { opacity: 0.45; cursor: default; }
 
-      .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+      .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
       .cat {
         display: flex; align-items: center; justify-content: space-between;
-        border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
-        padding: 5px 7px; font-size: 11px; cursor: default; color: var(--mut);
+        border: 1px solid var(--line); border-radius: 4px; background: var(--panel);
+        padding: 4px 6px; font-size: 10.5px; cursor: default; color: var(--mut);
         text-align: left; gap: 4px; min-width: 0;
       }
-      .cat .nm { color: var(--txt); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .cat .pt { font-variant-numeric: tabular-nums; font-weight: 700; flex: none; }
-      .cat.able { cursor: pointer; border-color: var(--gold); background: rgba(255,194,74,0.10); }
-      .cat.able .pt { color: var(--gold); }
-      .cat.able:hover { background: rgba(255,194,74,0.18); }
-      .cat.filled { opacity: 0.5; }
+      .cat .nm { color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat .pt { font-variant-numeric: tabular-nums; flex: none; }
+      .cat.able { cursor: pointer; background: var(--panel2); border-color: var(--panel3); }
+      .cat.able .pt { color: var(--emph); }
+      .cat.able:hover { background: var(--panel3); }
+      .cat.filled { opacity: 0.4; }
       .cat.filled .pt { color: var(--txt); }
 
-      .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 1px; font-size: 11px; color: var(--mut); }
-      .foot .total { font-size: 15px; font-weight: 800; color: var(--gold); }
-      .foot .total small { font-size: 10px; color: var(--mut); font-weight: 600; }
-      .bonus { color: var(--good); }
-      .new { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+      .foot { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: var(--mut); }
+      .foot .total { font-size: 13px; font-weight: 700; color: var(--emph); }
+      .foot .total small { font-size: 9px; color: var(--mut); font-weight: 600; }
+      .bonus { color: var(--mut); }
+      .new { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 11px; }
       .new:hover { color: var(--txt); }
 
-      .over { position: fixed; inset: 0; background: rgba(4,6,11,0.85); display: grid; place-items: center; }
+      .over { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.9); display: grid; place-items: center; }
       .over.hidden { display: none; }
       .overcard { text-align: center; }
-      .overcard .big { font-size: 44px; font-weight: 800; color: var(--gold); line-height: 1; }
-      .overcard .ko { color: var(--mut); font-size: 12px; margin: 4px 0 14px; }
-      .again {
-        border: none; border-radius: 8px; padding: 9px 22px; font-weight: 700; color: #fff; cursor: pointer;
-        background: linear-gradient(160deg, var(--acc), #4f6fff);
-      }
+      .overcard .big { font-size: 36px; font-weight: 700; color: var(--emph); line-height: 1; }
+      .overcard .ko { color: var(--mut); font-size: 11px; margin: 4px 0 12px; }
+      .again { border: 1px solid var(--line); border-radius: 5px; padding: 7px 18px; font-weight: 600; color: var(--txt); cursor: pointer; background: var(--panel2); }
+      .again:hover { background: var(--panel3); }
     </style>
   </head>
   <body>
     <div id="app">
       <div class="top">
-        <span class="logo">YACHT</span>
+        <span class="logo">설정</span>
         <button class="x" id="close" title="닫기">✕</button>
       </div>
       <div class="dice" id="dice"></div>
@@ -97,14 +92,14 @@
       <div class="foot">
         <span class="total" id="total">0<small> 점</small></span>
         <span id="turn">1 / 12</span>
-        <button class="new" id="new" title="새 게임">↺ 새 게임</button>
+        <button class="new" id="new" title="새로">↺ 새로</button>
       </div>
     </div>
 
     <div class="over hidden" id="over">
       <div class="overcard">
         <div class="big" id="final">0</div>
-        <div class="ko">게임 종료</div>
+        <div class="ko">완료</div>
         <button class="again" id="again">다시</button>
       </div>
     </div>
@@ -186,7 +181,6 @@
       const catsEl = document.getElementById('cats');
 
       function render() {
-        // dice
         diceEl.innerHTML = '';
         state.dice.forEach((v, i) => {
           const d = document.createElement('button');
@@ -196,12 +190,10 @@
           diceEl.appendChild(d);
         });
 
-        // roll button
         const rollBtn = document.getElementById('roll');
-        rollBtn.textContent = state.rolls > 0 ? `굴리기 (${state.rolls})` : '점수 기록';
+        rollBtn.textContent = state.rolls > 0 ? `굴리기 (${state.rolls})` : '기록';
         rollBtn.disabled = state.rolls <= 0;
 
-        // categories
         catsEl.innerHTML = '';
         CATS.forEach((cat) => {
           const filled = state.filled[cat.id] != null;
@@ -214,7 +206,6 @@
           catsEl.appendChild(b);
         });
 
-        // footer
         const bn = bonus();
         document.getElementById('total').innerHTML =
           `${total()}<small> 점</small>` + (bn ? ` <span class="bonus">+${bn}</span>` : '');
