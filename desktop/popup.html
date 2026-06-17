@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yacht</title>
+    <style>
+      :root {
+        --bg: #07090f;
+        --panel: #11151f;
+        --panel2: #181d2a;
+        --line: #232a3a;
+        --txt: #e8ecf7;
+        --mut: #8893ac;
+        --acc: #6c8cff;
+        --gold: #ffc24a;
+        --good: #46d98a;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--txt);
+        font-family: 'Segoe UI', system-ui, 'Malgun Gothic', sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #app { display: flex; flex-direction: column; height: 100vh; padding: 8px 9px 9px; gap: 7px; }
+
+      .top { display: flex; align-items: center; justify-content: space-between; }
+      .logo { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--mut); }
+      .x {
+        border: none; background: transparent; color: var(--mut); font-size: 12px;
+        cursor: pointer; padding: 2px 4px; line-height: 1;
+      }
+      .x:hover { color: var(--txt); }
+
+      .dice { display: flex; gap: 5px; justify-content: center; }
+      .die {
+        width: 34px; height: 34px; border-radius: 7px;
+        background: linear-gradient(160deg, #fff, #e7ebfb);
+        border: 2px solid transparent; cursor: pointer; flex: none;
+        display: grid; place-items: center; font-size: 18px; font-weight: 800; color: #141a2b;
+      }
+      .die.empty { background: var(--panel2); color: transparent; }
+      .die.held { border-color: var(--acc); transform: translateY(2px); }
+
+      .roll {
+        border: none; border-radius: 8px; padding: 9px; font-size: 13px; font-weight: 700;
+        color: #fff; cursor: pointer;
+        background: linear-gradient(160deg, var(--acc), #4f6fff);
+      }
+      .roll:disabled { opacity: 0.4; cursor: default; }
+
+      .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+      .cat {
+        display: flex; align-items: center; justify-content: space-between;
+        border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+        padding: 5px 7px; font-size: 11px; cursor: default; color: var(--mut);
+        text-align: left; gap: 4px; min-width: 0;
+      }
+      .cat .nm { color: var(--txt); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat .pt { font-variant-numeric: tabular-nums; font-weight: 700; flex: none; }
+      .cat.able { cursor: pointer; border-color: var(--gold); background: rgba(255,194,74,0.10); }
+      .cat.able .pt { color: var(--gold); }
+      .cat.able:hover { background: rgba(255,194,74,0.18); }
+      .cat.filled { opacity: 0.5; }
+      .cat.filled .pt { color: var(--txt); }
+
+      .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 1px; font-size: 11px; color: var(--mut); }
+      .foot .total { font-size: 15px; font-weight: 800; color: var(--gold); }
+      .foot .total small { font-size: 10px; color: var(--mut); font-weight: 600; }
+      .bonus { color: var(--good); }
+      .new { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+      .new:hover { color: var(--txt); }
+
+      .over { position: fixed; inset: 0; background: rgba(4,6,11,0.85); display: grid; place-items: center; }
+      .over.hidden { display: none; }
+      .overcard { text-align: center; }
+      .overcard .big { font-size: 44px; font-weight: 800; color: var(--gold); line-height: 1; }
+      .overcard .ko { color: var(--mut); font-size: 12px; margin: 4px 0 14px; }
+      .again {
+        border: none; border-radius: 8px; padding: 9px 22px; font-weight: 700; color: #fff; cursor: pointer;
+        background: linear-gradient(160deg, var(--acc), #4f6fff);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="top">
+        <span class="logo">YACHT</span>
+        <button class="x" id="close" title="닫기">✕</button>
+      </div>
+      <div class="dice" id="dice"></div>
+      <button class="roll" id="roll">굴리기</button>
+      <div class="cats" id="cats"></div>
+      <div class="foot">
+        <span class="total" id="total">0<small> 점</small></span>
+        <span id="turn">1 / 12</span>
+        <button class="new" id="new" title="새 게임">↺ 새 게임</button>
+      </div>
+    </div>
+
+    <div class="over hidden" id="over">
+      <div class="overcard">
+        <div class="big" id="final">0</div>
+        <div class="ko">게임 종료</div>
+        <button class="again" id="again">다시</button>
+      </div>
+    </div>
+
+    <script>
+      // ── 최소 싱글플레이 요트다이스 ──
+      const CATS = [
+        { id: 'ones', nm: '원', fn: (d) => up(d, 1) },
+        { id: 'twos', nm: '투', fn: (d) => up(d, 2) },
+        { id: 'threes', nm: '쓰리', fn: (d) => up(d, 3) },
+        { id: 'fours', nm: '포', fn: (d) => up(d, 4) },
+        { id: 'fives', nm: '파이브', fn: (d) => up(d, 5) },
+        { id: 'sixes', nm: '식스', fn: (d) => up(d, 6) },
+        { id: 'choice', nm: '초이스', fn: (d) => sum(d) },
+        { id: 'fourkind', nm: '포카드', fn: (d) => (maxCount(d) >= 4 ? sum(d) : 0) },
+        { id: 'fullhouse', nm: '풀하우스', fn: fullHouse },
+        { id: 'small', nm: '스몰', fn: (d) => (straight(d) >= 4 ? 15 : 0) },
+        { id: 'large', nm: '라지', fn: (d) => (straight(d) >= 5 ? 30 : 0) },
+        { id: 'yacht', nm: '야추', fn: (d) => (maxCount(d) === 5 ? 50 : 0) },
+      ];
+      const UPPER = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'];
+
+      function counts(d) { const c = [0, 0, 0, 0, 0, 0, 0]; d.forEach((x) => c[x]++); return c; }
+      function up(d, n) { return d.filter((x) => x === n).length * n; }
+      function sum(d) { return d.reduce((a, b) => a + b, 0); }
+      function maxCount(d) { return Math.max(...counts(d).slice(1)); }
+      function fullHouse(d) { const c = counts(d).slice(1).filter((x) => x > 0).sort(); return c.length === 2 && c[0] === 2 && c[1] === 3 ? sum(d) : 0; }
+      function straight(d) {
+        const s = [...new Set(d)].sort((a, b) => a - b);
+        let run = 1, best = 1;
+        for (let i = 1; i < s.length; i++) { if (s[i] === s[i - 1] + 1) { run++; best = Math.max(best, run); } else run = 1; }
+        return best;
+      }
+
+      let state;
+      function reset() {
+        state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, turn: 0 };
+        document.getElementById('over').classList.add('hidden');
+        render();
+      }
+
+      function roll() {
+        if (state.rolls <= 0) return;
+        state.dice = state.dice.map((v, i) => (state.rolled && state.held[i] ? v : 1 + Math.floor(Math.random() * 6)));
+        state.rolls--;
+        state.rolled = true;
+        render();
+      }
+
+      function toggleHold(i) {
+        if (!state.rolled || state.rolls === 0 || state.rolls === 3) return;
+        state.held[i] = !state.held[i];
+        render();
+      }
+
+      function pick(cat) {
+        if (!state.rolled || state.filled[cat.id] != null) return;
+        state.filled[cat.id] = cat.fn(state.dice);
+        state.turn++;
+        if (state.turn >= 12) return gameOver();
+        state.dice = [1, 1, 1, 1, 1];
+        state.held = [false, false, false, false, false];
+        state.rolls = 3;
+        state.rolled = false;
+        render();
+      }
+
+      function upperSub() { return UPPER.reduce((a, id) => a + (state.filled[id] || 0), 0); }
+      function bonus() { return upperSub() >= 63 ? 35 : 0; }
+      function total() { return Object.values(state.filled).reduce((a, b) => a + b, 0) + bonus(); }
+
+      function gameOver() {
+        render();
+        document.getElementById('final').textContent = total();
+        document.getElementById('over').classList.remove('hidden');
+      }
+
+      const diceEl = document.getElementById('dice');
+      const catsEl = document.getElementById('cats');
+
+      function render() {
+        // dice
+        diceEl.innerHTML = '';
+        state.dice.forEach((v, i) => {
+          const d = document.createElement('button');
+          d.className = 'die' + (state.held[i] ? ' held' : '') + (state.rolled ? '' : ' empty');
+          d.textContent = state.rolled ? v : '';
+          d.onclick = () => toggleHold(i);
+          diceEl.appendChild(d);
+        });
+
+        // roll button
+        const rollBtn = document.getElementById('roll');
+        rollBtn.textContent = state.rolls > 0 ? `굴리기 (${state.rolls})` : '점수 기록';
+        rollBtn.disabled = state.rolls <= 0;
+
+        // categories
+        catsEl.innerHTML = '';
+        CATS.forEach((cat) => {
+          const filled = state.filled[cat.id] != null;
+          const able = !filled && state.rolled;
+          const b = document.createElement('button');
+          b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '');
+          const pt = filled ? state.filled[cat.id] : state.rolled ? cat.fn(state.dice) : '·';
+          b.innerHTML = `<span class="nm">${cat.nm}</span><span class="pt">${pt}</span>`;
+          if (able) b.onclick = () => pick(cat);
+          catsEl.appendChild(b);
+        });
+
+        // footer
+        const bn = bonus();
+        document.getElementById('total').innerHTML =
+          `${total()}<small> 점</small>` + (bn ? ` <span class="bonus">+${bn}</span>` : '');
+        document.getElementById('turn').textContent = `${Math.min(state.turn + 1, 12)} / 12`;
+      }
+
+      document.getElementById('roll').onclick = roll;
+      document.getElementById('new').onclick = reset;
+      document.getElementById('again').onclick = reset;
+      document.getElementById('close').onclick = () => window.close();
+      reset();
+    </script>
+  </body>
+</html>

@@ -20,12 +20,13 @@
     },
     "files": [
       "main.js",
+      "popup.html",
       "package.json"
     ],
     "extraResources": [
       {
-        "from": "../dist",
-        "to": "web"
+        "from": "build/icon.png",
+        "to": "icon.png"
       }
     ],
     "win": {
