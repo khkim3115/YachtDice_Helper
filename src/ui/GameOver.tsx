@@ -16,6 +16,7 @@ export function GameOver() {
   const newGame = useGameStore((s) => s.newGame);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const helperUsedThisGame = useGameStore((s) => s.helperUsedThisGame);
+  const undoUsedThisGame = useGameStore((s) => s.undoUsedThisGame);
   const [submitOpen, setSubmitOpen] = useState(false);
 
   const total = grandTotal(card, rules);
@@ -73,7 +74,7 @@ export function GameOver() {
           </div>
         </div>
 
-        {!helperUsedThisGame && (
+        {!helperUsedThisGame && !undoUsedThisGame && (
           <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
             🏆 리더보드 등록
           </button>

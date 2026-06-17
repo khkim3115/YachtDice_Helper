@@ -4,7 +4,7 @@ import { useBoard } from '../store/useBoard';
 import { Die } from './Die';
 
 export function DiceTray({ advice }: { advice: Advice | null }) {
-  const { dice, held, rollsUsed, highlightSuggestion, canRoll, canReroll, gameOver, readOnly, roll, toggleHold } =
+  const { dice, held, rollsUsed, highlightSuggestion, canRoll, canReroll, gameOver, readOnly, roll, toggleHold, undo, canUndo } =
     useBoard();
 
   const active = rollsUsed > 0;
@@ -37,9 +37,16 @@ export function DiceTray({ advice }: { advice: Advice | null }) {
       </div>
 
       <div className="controls">
-        <button className="roll-btn" disabled={!canRoll} onClick={roll}>
-          {rollLabel}
-        </button>
+        <div className="control-row">
+          <button className="roll-btn" disabled={!canRoll} onClick={roll}>
+            {rollLabel}
+          </button>
+          {undo && (
+            <button className="undo-btn" disabled={!canUndo} onClick={undo} title="마지막 기록 되돌리기">
+              ↩ 되돌리기
+            </button>
+          )}
+        </div>
         <div className="roll-dots" aria-label={`굴림 ${rollsUsed}/${ROLLS_PER_TURN}`}>
           {Array.from({ length: ROLLS_PER_TURN }, (_, i) => (
             <span key={i} className={`dot ${i < rollsUsed ? 'used' : ''}`} />

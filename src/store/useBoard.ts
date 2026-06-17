@@ -32,6 +32,10 @@ export interface BoardView {
   roll: () => void;
   toggleHold: (i: number) => void;
   assign: (cat: CategoryId) => void;
+  /** 되돌리기(솔로 전용). 멀티에서는 null → 버튼 미표시. */
+  undo: (() => void) | null;
+  /** 되돌리기 가능 여부(멀티는 항상 false). */
+  canUndo: boolean;
 }
 
 export function useBoard(): BoardView {
@@ -50,8 +54,10 @@ export function useBoard(): BoardView {
   const soloRoll = useGameStore((s) => s.roll);
   const soloToggleHold = useGameStore((s) => s.toggleHold);
   const soloAssign = useGameStore((s) => s.assign);
+  const soloUndo = useGameStore((s) => s.undo);
   const soloCanRoll = useGameStore((s) => s.canRoll());
   const soloCanReroll = useGameStore((s) => s.canReroll());
+  const soloCanUndo = useGameStore((s) => s.canUndo());
   const soloGameOver = useGameStore((s) => s.gameOver());
 
   // 멀티 슬라이스
@@ -99,6 +105,8 @@ export function useBoard(): BoardView {
       assign: (cat) => {
         void mpAssign(cat);
       },
+      undo: null,
+      canUndo: false,
     };
   }
 
@@ -120,5 +128,7 @@ export function useBoard(): BoardView {
     roll: soloRoll,
     toggleHold: soloToggleHold,
     assign: soloAssign,
+    undo: soloUndo,
+    canUndo: soloCanUndo,
   };
 }

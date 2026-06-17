@@ -21,6 +21,15 @@ export interface Settings {
   highlightSuggestion: boolean;
 }
 
+/** 되돌리기용 턴 직전 상태 스냅샷(기록 직전에 저장). */
+interface SoloSnapshot {
+  card: Scorecard;
+  dice: number[];
+  held: boolean[];
+  rollsUsed: number;
+  resultOpen: boolean;
+}
+
 interface GameStore {
   rules: RuleConfig;
   card: Scorecard;
@@ -35,6 +44,10 @@ interface GameStore {
   resultOpen: boolean;
   /** 이번 게임에서 헬퍼 조언이 한 번이라도 표시됐는지(리더보드 등록 자격 판단). newGame 시 리셋. */
   helperUsedThisGame: boolean;
+  /** 기록 시점마다 쌓는 되돌리기 스택(턴 단위). newGame 시 리셋. */
+  history: SoloSnapshot[];
+  /** 이번 게임에서 되돌리기를 한 번이라도 썼는지(리더보드 등록 자격 판단). newGame 시 리셋. */
+  undoUsedThisGame: boolean;
   /** 현재 테마(다크/라이트). */
   theme: ThemeMode;
 
@@ -42,11 +55,15 @@ interface GameStore {
   canRoll: () => boolean;
   canReroll: () => boolean;
   gameOver: () => boolean;
+  /** 되돌리기 가능 여부(기록 이력이 있고 턴 시작 시점일 때만). */
+  canUndo: () => boolean;
 
   loadTable: () => Promise<void>;
   roll: () => void;
   toggleHold: (i: number) => void;
   assign: (cat: CategoryId) => void;
+  /** 마지막 기록을 취소하고 그 턴 직전 상태로 복원(리더보드 등록 자격 박탈). */
+  undo: () => void;
   newGame: () => void;
   setSettings: (patch: Partial<Settings>) => void;
   setResultOpen: (open: boolean) => void;
@@ -87,6 +104,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tableStatus: 'idle',
   resultOpen: false,
   helperUsedThisGame: false,
+  history: [],
+  undoUsedThisGame: false,
   theme: getInitialTheme(),
 
   rerollsLeft: () => ROLLS_PER_TURN - get().rollsUsed,
@@ -96,6 +115,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return !s.gameOver() && s.rollsUsed > 0 && s.rollsUsed < ROLLS_PER_TURN;
   },
   gameOver: () => isGameOver(get().card),
+  // 진행 중인 굴림을 잃지 않도록 턴 시작 시점(굴리기 전)에만 활성화.
+  canUndo: () => {
+    const s = get();
+    return s.history.length > 0 && s.rollsUsed === 0;
+  },
 
   loadTable: async () => {
     if (get().tableStatus === 'loading' || get().tableStatus === 'ready') return;
@@ -146,6 +170,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       held: Array(DICE_COUNT).fill(false),
       rollsUsed: 0,
       resultOpen: isGameOver(card),
+      // 되돌리기용으로 기록 직전 상태를 스택에 저장(배열은 복사본).
+      history: [
+        ...s.history,
+        { card: s.card, dice: [...s.dice], held: [...s.held], rollsUsed: s.rollsUsed, resultOpen: s.resultOpen },
+      ],
+    });
+  },
+
+  undo: () => {
+    const s = get();
+    if (s.history.length === 0) return;
+    const prev = s.history[s.history.length - 1];
+    set({
+      card: prev.card,
+      dice: [...prev.dice],
+      held: [...prev.held],
+      rollsUsed: prev.rollsUsed,
+      resultOpen: prev.resultOpen,
+      history: s.history.slice(0, -1),
+      undoUsedThisGame: true,
     });
   },
 
@@ -157,6 +201,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       rollsUsed: 0,
       resultOpen: false,
       helperUsedThisGame: false,
+      history: [],
+      undoUsedThisGame: false,
     });
   },
 
