@@ -2,7 +2,7 @@
 // - 트레이 상주. 트레이 클릭 → 작은 네이티브 메뉴. '플레이'를 누르면 트레이 위에 아주 작은
 //   검정 팝업이 떠서 그 안에서 최소 기능 싱글플레이 요트다이스를 한다(자립형 popup.html).
 // - 바깥 클릭 시 팝업 숨김. 부팅 시 자동 실행(첫 실행 기본 ON). 완전 오프라인.
-const { app, BrowserWindow, Tray, Menu, nativeImage, shell, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, shell, screen, ipcMain } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -25,6 +25,11 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => showPanel());
+
+  // 렌더러(✕/Esc)의 숨기기 요청 — 닫지 않고 hide만(상태 유지, blur 와 동일).
+  ipcMain.on('yd-hide', () => {
+    if (win && !win.isDestroyed()) win.hide();
+  });
 
   app.whenReady().then(() => {
     app.setAppUserModelId('com.khkim.yachtdice');
@@ -55,7 +60,11 @@ function createWindow() {
     backgroundColor: '#07090f',
     icon: ICON_PATH,
     title: 'Yacht',
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
+    },
   });
   Menu.setApplicationMenu(null);
   win.loadFile(POPUP);
@@ -63,26 +72,23 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => {
     console.log('[yd] loaded:', win.webContents.getURL());
     if (process.env.YD_SMOKE) {
-      showPanel();
-      win.webContents
-        .executeJavaScript(
-          "document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space'}));" +
-            "document.dispatchEvent(new KeyboardEvent('keydown',{key:'1'}));" +
-            "document.dispatchEvent(new KeyboardEvent('keydown',{key:'3'}));"
-        )
-        .catch(() => {});
-      setTimeout(async () => {
-        try {
-          const img = await win.webContents.capturePage();
-          const out = path.join(app.getPath('temp'), 'yd-panel-shot.png');
-          fs.writeFileSync(out, img.toPNG());
-          console.log('[yd] shot:', out, JSON.stringify(img.getSize()));
-        } catch (e) {
-          console.error('[yd] shot err', e);
-        }
+      const js = (s) => win.webContents.executeJavaScript(s).catch(() => 'err');
+      (async () => {
+        showPanel();
+        await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space'}))");
+        const before = await js('JSON.stringify({rolls:state.rolls,rolled:state.rolled})');
+        // Esc → 숨기기(yd.hide). 창이 파괴되면 상태가 초기화될 것.
+        await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+        await new Promise((r) => setTimeout(r, 350));
+        const destroyed = win.isDestroyed();
+        const visible = destroyed ? false : win.isVisible();
+        if (!destroyed) showPanel();
+        await new Promise((r) => setTimeout(r, 200));
+        const after = destroyed ? 'DESTROYED' : await js('JSON.stringify({rolls:state.rolls,rolled:state.rolled})');
+        console.log('[yd] persist-test before:', before, '| afterEscHide destroyed:', destroyed, 'wasHidden:', !visible, '| after:', after);
         app.isQuitting = true;
         app.quit();
-      }, 800);
+      })();
     }
   });
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {

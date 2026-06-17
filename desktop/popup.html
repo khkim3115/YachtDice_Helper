@@ -226,11 +226,13 @@
       document.getElementById('roll').onclick = roll;
       document.getElementById('new').onclick = reset;
       document.getElementById('again').onclick = reset;
-      document.getElementById('close').onclick = () => window.close();
+      // 닫지 않고 숨기기만(상태 유지). preload 미주입 시 close 로 폴백.
+      const hidePopup = () => (window.yd ? window.yd.hide() : window.close());
+      document.getElementById('close').onclick = hidePopup;
 
       // ── 키보드 단축키 ──
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { e.preventDefault(); window.close(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); hidePopup(); return; }
         const overOpen = !document.getElementById('over').classList.contains('hidden');
         if (overOpen) {
           if (e.key === 'Enter') { e.preventDefault(); reset(); }
