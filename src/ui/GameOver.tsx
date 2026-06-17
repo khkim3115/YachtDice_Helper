@@ -17,6 +17,8 @@ export function GameOver() {
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const helperUsedThisGame = useGameStore((s) => s.helperUsedThisGame);
   const undoUsedThisGame = useGameStore((s) => s.undoUsedThisGame);
+  const scoreSubmittedThisGame = useGameStore((s) => s.scoreSubmittedThisGame);
+  const markScoreSubmitted = useGameStore((s) => s.markScoreSubmitted);
   const [submitOpen, setSubmitOpen] = useState(false);
 
   const total = grandTotal(card, rules);
@@ -74,11 +76,15 @@ export function GameOver() {
           </div>
         </div>
 
-        {!helperUsedThisGame && !undoUsedThisGame && (
-          <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
-            🏆 리더보드 등록
-          </button>
-        )}
+        {!helperUsedThisGame &&
+          !undoUsedThisGame &&
+          (scoreSubmittedThisGame ? (
+            <div className="lb-registered">✓ 리더보드 등록 완료</div>
+          ) : (
+            <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
+              🏆 리더보드 등록
+            </button>
+          ))}
 
         <div className="go-actions">
           <button className="ghost-btn" onClick={() => setResultOpen(false)}>
@@ -96,6 +102,7 @@ export function GameOver() {
           mode="solo"
           defaultName={savedName()}
           onClose={() => setSubmitOpen(false)}
+          onSubmitted={markScoreSubmitted}
         />
       )}
     </div>

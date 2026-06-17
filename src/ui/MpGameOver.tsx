@@ -12,6 +12,8 @@ export function MpGameOver() {
   const myUserId = useMultiplayerStore((s) => s.myUserId);
   const leave = useMultiplayerStore((s) => s.leave);
   const [submitOpen, setSubmitOpen] = useState(false);
+  // 이번 게임 점수를 이미 등록했는지(재등록 방지). MpGameOver 는 "홈으로" 전까지 유지되므로 local state 로 충분.
+  const [submitted, setSubmitted] = useState(false);
   if (!room) return null;
 
   const ranked = players
@@ -54,11 +56,14 @@ export function MpGameOver() {
           ))}
         </div>
 
-        {canRegister && (
-          <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
-            🏆 리더보드 등록 (내 점수 {me.total})
-          </button>
-        )}
+        {canRegister &&
+          (submitted ? (
+            <div className="lb-registered">✓ 리더보드 등록 완료</div>
+          ) : (
+            <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
+              🏆 리더보드 등록 (내 점수 {me.total})
+            </button>
+          ))}
 
         <button className="again-btn" onClick={() => void onHome()}>
           홈으로
@@ -71,6 +76,7 @@ export function MpGameOver() {
           mode="multi"
           defaultName={me.p.displayName}
           onClose={() => setSubmitOpen(false)}
+          onSubmitted={() => setSubmitted(true)}
         />
       )}
     </div>
