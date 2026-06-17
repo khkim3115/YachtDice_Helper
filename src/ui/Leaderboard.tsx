@@ -1,12 +1,11 @@
 // 리더보드 페이지(홈에서 진입). 통합 단일 Top10 — 모드 배지로 솔로/멀티/데스크톱 구분.
 import { useEffect, useState } from 'react';
-import { useAppStore } from '../store/appStore';
 import { fetchTopScores, type LbEntry } from '../lib/leaderboard';
+import { Header } from './Header';
 
 const MODE_LABEL: Record<string, string> = { solo: '솔로', multi: '멀티', desktop: '데스크톱' };
 
 export function Leaderboard() {
-  const setScreen = useAppStore((s) => s.setScreen);
   const [entries, setEntries] = useState<LbEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,22 +25,7 @@ export function Leaderboard() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <h1>🏆 리더보드</h1>
-          <span className="sub">헬퍼 없이 달성한 Top 10</span>
-        </div>
-        <div className="topbar-right">
-          <button
-            className="theme-btn"
-            onClick={() => setScreen('home')}
-            aria-label="메뉴"
-            title="메뉴로"
-          >
-            🏠
-          </button>
-        </div>
-      </div>
+      <Header title="🏆 리더보드" subtitle="헬퍼 없이 달성한 Top 10" showHome />
 
       <div className="lb-page">
         {error && <div className="mp-error">{error}</div>}

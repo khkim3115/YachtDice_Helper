@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
+import { Header } from './Header';
 
 export function Lobby() {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -33,15 +34,11 @@ export function Lobby() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <h1>대기실</h1>
-          <span className="sub">Lobby</span>
-        </div>
+      <Header title="대기실" subtitle="Lobby">
         <button className="ghost-btn lobby-leave" onClick={onLeave}>
           나가기
         </button>
-      </div>
+      </Header>
 
       <div className="panel lobby">
         <div className="lobby-code">

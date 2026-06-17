@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 import { selectActivePlayer, useMultiplayerStore } from '../store/multiplayerStore';
 import { useAdvice } from '../store/useAdvice';
 import { useBoard } from '../store/useBoard';
+import { Header } from './Header';
 import { DiceTray } from './DiceTray';
 import { Scorecard } from './Scorecard';
 import { HelperPanel } from './HelperPanel';
 import { ScorecardMini } from './ScorecardMini';
 import { TurnBanner } from './TurnBanner';
 import { MpGameOver } from './MpGameOver';
-import { SettingsPanel } from './SettingsPanel';
 
 export function MultiplayerGame() {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -24,7 +24,6 @@ export function MultiplayerGame() {
   const loadTable = useGameStore((s) => s.loadTable);
   const board = useBoard();
   const advice = useAdvice();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const helperAllowed = room?.helperAllowed ?? false;
 
@@ -48,20 +47,11 @@ export function MultiplayerGame() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <h1>YACHT DICE</h1>
-          <span className="sub">방 {room.code}</span>
-        </div>
-        <div className="topbar-right">
-          <button className="gear" onClick={() => setSettingsOpen(true)} aria-label="설정">
-            ⚙️
-          </button>
-          <button className="ghost-btn lobby-leave" onClick={() => void onLeave()}>
-            나가기
-          </button>
-        </div>
-      </div>
+      <Header title="YACHT DICE" subtitle={`방 ${room.code}`}>
+        <button className="ghost-btn lobby-leave" onClick={() => void onLeave()}>
+          나가기
+        </button>
+      </Header>
 
       <TurnBanner />
 
@@ -94,7 +84,6 @@ export function MultiplayerGame() {
           {error}
         </div>
       )}
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       {finished && <MpGameOver />}
     </div>
   );
