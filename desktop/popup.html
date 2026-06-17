@@ -215,6 +215,7 @@
       function total() { return Object.values(state.filled).reduce((a, b) => a + b, 0) + bonus(); }
 
       let finalScore = 0;
+      let lbSubmitted = false; // 이번 게임 점수를 이미(또는 진행 중) 등록했는지 — 중복 등록 방지.
       function gameOver() {
         render();
         finalScore = total();
@@ -226,6 +227,7 @@
         const nm = document.getElementById('lb-name');
         if (msg) msg.textContent = '';
         if (btn) btn.disabled = false;
+        lbSubmitted = false; // 새 게임 점수 → 다시 등록 가능.
         try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || ''; } catch {}
       }
 
@@ -289,8 +291,11 @@
       }
 
       async function submitScore() {
+        // 이미 등록했거나 진행 중이면 무시(버튼 클릭·Enter 연타 모두 차단).
+        if (lbSubmitted) return;
         const nm = nameInput.value.trim();
         if (!nm) { nameInput.focus(); return; }
+        lbSubmitted = true; // 진행 중에도 재진입 차단 — 성공 시 유지, 실패 시 해제.
         submitBtn.disabled = true;
         msgEl.textContent = '등록 중…';
         try {
@@ -303,6 +308,7 @@
           try { localStorage.setItem('yd_lb_name', nm); } catch {}
           msgEl.textContent = '✓ 등록 완료';
         } catch (err) {
+          lbSubmitted = false; // 실패 → 재시도 허용.
           msgEl.textContent = '실패 (오프라인?)';
           submitBtn.disabled = false;
         }

@@ -48,6 +48,8 @@ interface GameStore {
   history: SoloSnapshot[];
   /** 이번 게임에서 되돌리기를 한 번이라도 썼는지(리더보드 등록 자격 판단). newGame 시 리셋. */
   undoUsedThisGame: boolean;
+  /** 이번 게임 점수를 리더보드에 이미 등록했는지(중복 등록 방지). newGame 시 리셋. */
+  scoreSubmittedThisGame: boolean;
   /** 현재 테마(다크/라이트). */
   theme: ThemeMode;
 
@@ -69,6 +71,8 @@ interface GameStore {
   setResultOpen: (open: boolean) => void;
   /** 헬퍼 조언이 실제 표시됐음을 기록(useAdvice 가 non-null 일 때 호출). */
   markHelperUsed: () => void;
+  /** 이번 게임 점수의 리더보드 등록 성공을 기록(재등록 방지). */
+  markScoreSubmitted: () => void;
   setTheme: (mode: ThemeMode) => void;
   toggleTheme: () => void;
 }
@@ -106,6 +110,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   helperUsedThisGame: false,
   history: [],
   undoUsedThisGame: false,
+  scoreSubmittedThisGame: false,
   theme: getInitialTheme(),
 
   rerollsLeft: () => ROLLS_PER_TURN - get().rollsUsed,
@@ -203,6 +208,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       helperUsedThisGame: false,
       history: [],
       undoUsedThisGame: false,
+      scoreSubmittedThisGame: false,
     });
   },
 
@@ -217,6 +223,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   markHelperUsed: () => {
     if (!get().helperUsedThisGame) set({ helperUsedThisGame: true });
+  },
+
+  markScoreSubmitted: () => {
+    if (!get().scoreSubmittedThisGame) set({ scoreSubmittedThisGame: true });
   },
 
   setTheme: (mode) => {

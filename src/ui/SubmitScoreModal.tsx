@@ -7,11 +7,14 @@ export function SubmitScoreModal({
   mode,
   defaultName,
   onClose,
+  onSubmitted,
 }: {
   score: number;
   mode: LbMode;
   defaultName?: string;
   onClose: () => void;
+  /** 등록 성공 시 1회 호출(부모가 재등록 방지 상태를 기록). */
+  onSubmitted?: () => void;
 }) {
   const [name, setName] = useState(defaultName ?? '');
   const [busy, setBusy] = useState(false);
@@ -32,6 +35,7 @@ export function SubmitScoreModal({
         // 저장 실패는 무시.
       }
       setDone(true);
+      onSubmitted?.();
     } catch (e) {
       setError((e as { message?: string })?.message ?? '등록에 실패했습니다.');
     } finally {
