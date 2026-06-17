@@ -1,8 +1,9 @@
 // Yacht Dice 트레이 데스크톱 앱 (Electron 래퍼)
 // - 빌드된 웹앱(../dist)을 커스텀 스킴(app://)으로 앱 내부에서 서빙 → 완전 오프라인.
-// - 시스템 트레이(우하단 알림 영역)에 상주. 게임은 트레이 위에 뜨는 팝업 패널에서 플레이.
-// - 패널 바깥을 클릭하면 숨김, 작업표시줄에는 표시하지 않음. 부팅 시 자동 실행(첫 실행 기본 ON).
-const { app, BrowserWindow, Tray, Menu, nativeImage, protocol, shell, screen } = require('electron');
+// - 시스템 트레이 상주. 트레이 아이콘을 클릭하면 작은 네이티브 메뉴(슬랙처럼)가 뜨고,
+//   '플레이'를 누르면 게임 창이 열린다. 창을 닫아도 종료하지 않고 트레이로 숨김.
+// - 부팅 시 자동 실행(첫 실행 기본 ON).
+const { app, BrowserWindow, Tray, Menu, nativeImage, protocol, shell } = require('electron');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
@@ -14,24 +15,17 @@ const DIST = app.isPackaged
 const ICON_PATH = path.join(DIST, 'pwa-512x512.png');
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 
-// 트레이 팝업 패널 크기(높이는 표시 시 작업 영역에 맞춰 보정).
-const PANEL_WIDTH = 600;
-const PANEL_HEIGHT = 880;
-
 let tray = null;
 let win = null;
-let lastHide = 0; // 트레이 클릭 ↔ blur 중복 처리 방지용 타임스탬프
-let shownAt = 0; // 표시 직후의 즉시 blur(런치 시 깜빡임) 무시용
 app.isQuitting = false;
 
-// ── 단일 인스턴스(트레이에 이미 떠 있으면 새로 띄우지 않고 기존 창을 보여줌) ──
+// ── 단일 인스턴스(이미 떠 있으면 새로 띄우지 않고 기존 창을 보여줌) ──
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => showPanel());
+  app.on('second-instance', () => showWindow());
 
-  // 커스텀 스킴은 ready 이전에 등록해야 한다. allowServiceWorkers 는 켜지 않음
-  // (앱 내부 서빙이라 SW 불필요 — 등록 시도는 조용히 실패하고 앱 동작에는 영향 없음).
+  // 커스텀 스킴은 ready 이전에 등록. allowServiceWorkers 는 켜지 않음(앱 내부 서빙이라 불필요).
   protocol.registerSchemesAsPrivileged([
     {
       scheme: 'app',
@@ -44,10 +38,8 @@ if (!app.requestSingleInstanceLock()) {
     protocol.handle('app', handleAppProtocol);
     setupAutostartDefault();
     createTray();
-    // 부팅 자동 실행(--hidden)으로 시작하면 창은 띄우지 않고 트레이에만 상주.
-    const startHidden =
-      process.argv.includes('--hidden') || app.getLoginItemSettings().wasOpenedAtLogin;
-    createWindow(startHidden);
+    // 게임 창은 미리 만들어 두되(빠른 첫 오픈), 띄우지는 않는다 — 트레이 메뉴에서 연다.
+    createWindow();
   });
 
   // 모든 창이 닫혀도 종료하지 않는다(트레이 상주).
@@ -57,7 +49,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 }
 
-// ── 커스텀 스킴 핸들러: app://… → ../dist 의 파일을 읽어 응답 ──
+// ── 커스텀 스킴 핸들러: app://… → DIST 의 파일을 읽어 응답 ──
 const MIME = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -81,7 +73,6 @@ async function handleAppProtocol(request) {
     let pathname = decodeURIComponent(url.pathname);
     if (pathname === '/' || pathname === '') pathname = '/index.html';
     const filePath = path.normalize(path.join(DIST, pathname));
-    // 경로 탈출 방지.
     if (filePath !== DIST && !filePath.startsWith(DIST + path.sep)) {
       return new Response('Forbidden', { status: 403 });
     }
@@ -95,22 +86,17 @@ async function handleAppProtocol(request) {
   }
 }
 
-// ── 창 ──
-function createWindow(hidden) {
+// ── 게임 창(일반 창 — 트레이 메뉴에서 열림) ──
+function createWindow() {
   win = new BrowserWindow({
-    width: PANEL_WIDTH,
-    height: PANEL_HEIGHT,
+    width: 1040,
+    height: 800,
+    minWidth: 360,
+    minHeight: 560,
     show: false,
-    frame: false, // 테두리 없는 트레이 팝업 패널
-    resizable: false,
-    movable: false,
-    maximizable: false,
-    minimizable: false,
-    fullscreenable: false,
-    skipTaskbar: true, // 작업표시줄에 표시하지 않음(트레이 중심)
-    alwaysOnTop: true,
     backgroundColor: '#0c1020',
     icon: ICON_PATH,
+    autoHideMenuBar: true,
     title: 'Yacht Dice',
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
@@ -133,35 +119,23 @@ function createWindow(hidden) {
       })()`;
       win.webContents
         .executeJavaScript(probe)
-        .then((r) => console.log('[yd] probe:', JSON.stringify(r), 'bounds:', JSON.stringify(win.getBounds())))
+        .then((r) => console.log('[yd] probe:', JSON.stringify(r)))
         .catch((e) => console.error('[yd] probe error:', e))
         .finally(() => setTimeout(() => {
           app.isQuitting = true;
           app.quit();
-        }, 1200));
+        }, 1000));
     }
   });
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     console.error('[yd] load failed:', code, desc, url);
   });
 
-  win.once('ready-to-show', () => {
-    if (!hidden) showPanel();
-  });
-
-  // 패널 바깥을 클릭(포커스 잃음)하면 숨긴다.
-  win.on('blur', () => {
-    if (win.webContents.isDevToolsOpened()) return;
-    // 표시 직후(런치 자동 표시 등)의 즉시 blur 는 무시 — 깜빡이며 닫히지 않게.
-    if (Date.now() - shownAt < 300) return;
-    hidePanel();
-  });
-
-  // 닫기(Alt+F4 등) = 트레이로 숨김(실제 종료는 트레이 메뉴 '종료'로만).
+  // 닫기 = 트레이로 숨김(실제 종료는 트레이 메뉴 '종료'로만).
   win.on('close', (e) => {
     if (!app.isQuitting) {
       e.preventDefault();
-      hidePanel();
+      win.hide();
     }
   });
 
@@ -175,54 +149,31 @@ function createWindow(hidden) {
   });
 }
 
-// 트레이 아이콘 위치를 기준으로 패널을 우하단(작업 영역 안)에 배치.
-function positionPanel() {
-  const trayBounds = tray.getBounds();
-  const area = screen.getDisplayMatching(trayBounds).workArea;
-  const width = PANEL_WIDTH;
-  const height = Math.min(PANEL_HEIGHT, area.height - 16);
-  // x: 트레이 아이콘 중앙에 맞추되 작업 영역을 벗어나지 않게 보정.
-  let x = Math.round(trayBounds.x + trayBounds.width / 2 - width / 2);
-  x = Math.min(x, area.x + area.width - width - 8);
-  x = Math.max(x, area.x + 8);
-  // y: 작업표시줄 바로 위.
-  const y = area.y + area.height - height - 8;
-  win.setBounds({ x, y, width, height });
-}
-
-function showPanel() {
+function showWindow() {
   if (!win || win.isDestroyed()) {
-    createWindow(false); // ready-to-show 에서 showPanel 이 다시 호출됨.
+    // 창이 없으면(예외적) 새로 만들고 준비되면 띄운다.
+    createWindow();
+    win.once('ready-to-show', () => {
+      win.center();
+      win.show();
+      win.focus();
+    });
     return;
   }
-  positionPanel();
+  if (win.isMinimized()) win.restore();
+  win.center();
   win.show();
   win.focus();
-  shownAt = Date.now();
 }
 
-function hidePanel() {
-  if (win && !win.isDestroyed()) win.hide();
-  lastHide = Date.now();
-}
-
-function togglePanel() {
-  if (win && !win.isDestroyed() && win.isVisible()) {
-    hidePanel();
-    return;
-  }
-  // 패널이 떠 있을 때 트레이를 누르면 blur 가 먼저 숨긴다 — 직후의 클릭은 무시(재오픈 방지).
-  if (Date.now() - lastHide < 250) return;
-  showPanel();
-}
-
-// ── 트레이 ──
+// ── 트레이(좌/우클릭 모두 작은 네이티브 메뉴) ──
 function createTray() {
   let img = nativeImage.createFromPath(ICON_PATH);
   if (!img.isEmpty()) img = img.resize({ width: 32, height: 32 });
   tray = new Tray(img.isEmpty() ? nativeImage.createEmpty() : img);
   tray.setToolTip('Yacht Dice — 요트다이스');
-  tray.on('click', () => togglePanel());
+  // 좌클릭에도 우클릭과 동일한 작은 메뉴를 띄운다(슬랙/일반 앱처럼).
+  tray.on('click', () => tray.popUpContextMenu());
   rebuildTrayMenu();
 }
 
@@ -230,7 +181,9 @@ function rebuildTrayMenu() {
   if (!tray) return;
   const autoOn = app.getLoginItemSettings().openAtLogin;
   const menu = Menu.buildFromTemplate([
-    { label: '🎲 플레이 / 열기', click: () => showPanel() },
+    { label: 'Yacht Dice — 요트다이스', enabled: false },
+    { type: 'separator' },
+    { label: '플레이', click: () => showWindow() },
     { type: 'separator' },
     {
       label: 'Windows 시작 시 자동 실행',
