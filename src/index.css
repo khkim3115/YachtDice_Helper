@@ -17,10 +17,46 @@
   --bad: #ff6b6b;
   --die-face: #f6f8ff;
   --die-pip: #1a2236;
+  --die-pip-hi: #3a4660;
+  --bg-glow: #1a2440;
+  --gold-ink: #2a2202;
+  --overlay: rgba(6, 8, 14, 0.6);
+  --overlay-strong: rgba(6, 8, 14, 0.74);
+  --accent-glow: rgba(79, 111, 255, 0.4);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --radius: 14px;
   font-family: 'Segoe UI', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic',
     sans-serif;
+}
+
+/* 라이트 테마 — 다크 :root 값을 덮어쓴다. 골드/그린/레드는 흰 배경 대비를 위해 어둡게,
+   배경/서피스는 밝게 뒤집되 레이어 위계(surface < surface-2 < surface-3 hover)는 유지. */
+:root[data-theme='light'] {
+  --bg-1: #f4f6fc;
+  --bg-2: #e9edf7;
+  --bg-glow: #d9e2fb;
+  --surface: #ffffff;
+  --surface-2: #f1f4fc;
+  --surface-3: #e3e9f7;
+  --border: #d5ddf0;
+  --text: #1b2440;
+  --muted: #586a91;
+  --faint: #8794b5;
+  --accent: #4f6fff;
+  --accent-strong: #3a5cff;
+  --gold: #b9831e;
+  --gold-soft: rgba(185, 131, 30, 0.16);
+  --gold-ink: #2a2202;
+  --good: #1f9d57;
+  --good-soft: rgba(31, 157, 87, 0.14);
+  --bad: #e0413f;
+  --die-face: #eef2ff;
+  --die-pip: #1a2236;
+  --die-pip-hi: #3a4660;
+  --overlay: rgba(20, 28, 54, 0.28);
+  --overlay-strong: rgba(20, 28, 54, 0.38);
+  --accent-glow: rgba(79, 111, 255, 0.25);
+  --shadow: 0 10px 30px rgba(31, 45, 90, 0.12);
 }
 
 * {
@@ -35,7 +71,7 @@ body,
 }
 
 body {
-  background: radial-gradient(1200px 700px at 70% -10%, #1a2440 0%, transparent 60%),
+  background: radial-gradient(1200px 700px at 70% -10%, var(--bg-glow) 0%, transparent 60%),
     linear-gradient(160deg, var(--bg-1), var(--bg-2));
   background-color: var(--bg-2);
   color: var(--text);
@@ -205,7 +241,7 @@ button:disabled {
   justify-self: center;
 }
 .die .pip.on {
-  background: radial-gradient(circle at 35% 35%, #3a4660, var(--die-pip));
+  background: radial-gradient(circle at 35% 35%, var(--die-pip-hi), var(--die-pip));
   background-color: var(--die-pip);
 }
 .die-anim {
@@ -238,7 +274,7 @@ button:disabled {
 }
 .die-tag.keep {
   background: var(--gold);
-  color: #2a2202;
+  color: var(--gold-ink);
 }
 
 .controls {
@@ -254,7 +290,7 @@ button:disabled {
   font-weight: 700;
   padding: 13px 26px;
   border-radius: 12px;
-  box-shadow: 0 8px 18px rgba(79, 111, 255, 0.4);
+  box-shadow: 0 8px 18px var(--accent-glow);
   transition: transform 0.1s ease, filter 0.1s ease;
 }
 .roll-btn:not(:disabled):hover {
@@ -351,7 +387,7 @@ button:disabled {
 .sc-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #2a2202;
+  color: var(--gold-ink);
   background: var(--gold);
   border-radius: 999px;
   padding: 1px 7px;
@@ -506,7 +542,7 @@ button:disabled {
 .settings {
   position: fixed;
   inset: 0;
-  background: rgba(6, 8, 14, 0.6);
+  background: var(--overlay);
   display: grid;
   place-items: center;
   z-index: 50;
@@ -562,6 +598,7 @@ button:disabled {
   height: 20px;
   border-radius: 50%;
   background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   transition: transform 0.15s ease;
 }
 .switch.on::after {
@@ -586,7 +623,7 @@ button:disabled {
 .gameover {
   position: fixed;
   inset: 0;
-  background: rgba(6, 8, 14, 0.74);
+  background: var(--overlay-strong);
   display: grid;
   place-items: center;
   z-index: 60;
@@ -723,6 +760,21 @@ button:disabled {
   font-size: 16px;
 }
 
+/* ── 테마 토글 ──────────────────────────────────────── */
+.theme-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+}
+.theme-btn:hover {
+  background: var(--surface-2);
+}
+
 /* ── 도움말 ─────────────────────────────────────────── */
 .help-btn {
   width: 40px;
@@ -741,7 +793,7 @@ button:disabled {
 .help {
   position: fixed;
   inset: 0;
-  background: rgba(6, 8, 14, 0.6);
+  background: var(--overlay);
   display: grid;
   place-items: center;
   z-index: 55;

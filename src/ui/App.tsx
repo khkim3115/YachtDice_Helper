@@ -17,6 +17,8 @@ export default function App() {
   const gameOver = useGameStore((s) => s.gameOver());
   const resultOpen = useGameStore((s) => s.resultOpen);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
+  const theme = useGameStore((s) => s.theme);
+  const toggleTheme = useGameStore((s) => s.toggleTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -63,6 +65,14 @@ export default function App() {
               🏁 결과
             </button>
           )}
+          <button
+            className="theme-btn"
+            onClick={toggleTheme}
+            aria-label="테마 전환"
+            title={theme === 'dark' ? '라이트 모드로' : '다크 모드로'}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           <button className="help-btn" onClick={() => setHelpOpen(true)} aria-label="도움말">
             ❓
           </button>

@@ -12,6 +12,8 @@ import { loadValueTable } from '../engine/valueTable';
 
 export type TableStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+export type ThemeMode = 'light' | 'dark';
+
 export interface Settings {
   helperEnabled: boolean;
   showProbabilities: boolean;
@@ -31,6 +33,8 @@ interface GameStore {
   tableStatus: TableStatus;
   /** 게임 종료 결과 팝업 표시 여부. */
   resultOpen: boolean;
+  /** 현재 테마(다크/라이트). */
+  theme: ThemeMode;
 
   rerollsLeft: () => number;
   canRoll: () => boolean;
@@ -44,6 +48,22 @@ interface GameStore {
   newGame: () => void;
   setSettings: (patch: Partial<Settings>) => void;
   setResultOpen: (open: boolean) => void;
+  setTheme: (mode: ThemeMode) => void;
+  toggleTheme: () => void;
+}
+
+/** index.html 인라인 스크립트가 이미 결정해 둔 값을 단일 출처로 되읽음(중복 로직·깜빡임 방지). */
+function getInitialTheme(): ThemeMode {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+function applyTheme(mode: ThemeMode) {
+  document.documentElement.dataset.theme = mode;
+  try {
+    localStorage.setItem('yd_theme', mode);
+  } catch {
+    // 저장 불가(사파리 사생활 모드 등) — 적용만 하고 영속화는 생략.
+  }
 }
 
 function rollDie(): number {
@@ -62,6 +82,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   advisor: null,
   tableStatus: 'idle',
   resultOpen: false,
+  theme: getInitialTheme(),
 
   rerollsLeft: () => ROLLS_PER_TURN - get().rollsUsed,
   canRoll: () => !get().gameOver() && get().rollsUsed < ROLLS_PER_TURN,
@@ -141,4 +162,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setResultOpen: (open) => set({ resultOpen: open }),
+
+  setTheme: (mode) => {
+    applyTheme(mode);
+    set({ theme: mode });
+  },
+  toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
 }));
