@@ -1,0 +1,44 @@
+{
+  "name": "yacht-dice-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yacht Dice 트레이 데스크톱 앱 — 웹 빌드(../dist)를 감싸 시스템 트레이에 상주시키는 Electron 래퍼",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.khkim.yachtdice",
+    "productName": "Yacht Dice",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist",
+        "to": "web"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "shortcutName": "Yacht Dice"
+    }
+  }
+}

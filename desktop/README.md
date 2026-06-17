@@ -1,0 +1,61 @@
+# Yacht Dice — 트레이 데스크톱 앱 (Electron)
+
+웹 게임을 감싸 **윈도우 시스템 트레이(우하단 알림 영역)에 상주**시키는 가벼운 Electron 래퍼.
+트레이 아이콘에서 바로 열고/닫고, 부팅 시 자동으로 떠 있게 할 수 있습니다. 게임과 헬퍼
+데이터(`V.bin`)를 앱에 내장(`app://` 커스텀 스킴)하므로 **인터넷 없이도** 동작합니다.
+
+루트의 웹 프로젝트와 **완전히 분리**되어 있습니다(별도 `package.json`/`node_modules`). 루트
+의존성에는 전혀 영향을 주지 않습니다.
+
+## 빌드 & 설치 파일 만들기
+
+```bash
+# 1) 먼저 루트에서 웹 빌드 (desktop 은 ../dist 를 내장)
+cd ..
+npm run build
+
+# 2) desktop 에서 의존성 설치 후 설치 파일 생성
+cd desktop
+npm install
+npm run dist
+```
+
+→ `desktop/release/Yacht Dice Setup <버전>.exe` 가 생성됩니다. 실행하면 설치되고(시작
+메뉴·바탕화면 바로가기 생성), 처음 실행 시 **부팅 자동 실행이 켜집니다**. 트레이 아이콘
+우클릭 메뉴에서 끄고 켤 수 있습니다.
+
+## 개발 실행(설치 없이 바로 띄우기)
+
+```bash
+cd ..
+npm run build          # ../dist 준비
+cd desktop
+npm install
+npm start              # electron . — 창 + 트레이 아이콘 표시
+```
+
+## 트레이 메뉴
+- **🎲 플레이 / 열기** — 게임 창 열기/포커스
+- **Windows 시작 시 자동 실행** — 부팅 시 트레이 상주 토글
+- **항상 위** — 창을 항상 맨 위로
+- **종료** — 앱 완전 종료 (창 닫기 ✕ 는 종료가 아니라 트레이로 숨김)
+
+## 빌드 문제 해결 (Windows)
+
+`npm run dist` 중 `winCodeSign` 압축 해제가 **심볼릭 링크 권한** 때문에 실패할 수 있습니다
+(`Cannot create symbolic link ... darwin/.../libcrypto.dylib`). 해당 심링크는 macOS용이라
+Windows 빌드엔 불필요합니다. 해결 방법(택1):
+
+- **개발자 모드 켜기** — 설정 ▸ 개인 정보 및 보안 ▸ 개발자용 ▸ 개발자 모드 ON (가장 간단).
+- 관리자 권한 터미널에서 `npm run dist` 실행.
+- 캐시 시드(개발자 모드/관리자 없이): 실패한 임시 추출본을 최종 캐시 폴더로 복사해 재추출을 건너뜀.
+  `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\` 아래의 (signtool.exe 가 들어있는) 임시
+  숫자 폴더를 `winCodeSign-2.6.0` 로 복사한 뒤 다시 `npm run dist`.
+
+설치 파일은 코드 서명이 없어 첫 실행 시 SmartScreen 경고가 뜰 수 있습니다(추가 정보 ▸ 실행).
+
+## 동작 메모
+- 창의 **✕(닫기)** 는 트레이로 숨김. 완전 종료는 트레이 메뉴 **종료**로만.
+- 트레이 아이콘 **좌클릭** = 창 열기/숨기기 토글.
+- 단일 인스턴스 — 이미 떠 있으면 새 창 대신 기존 창을 보여줍니다.
+- 아이콘은 웹 빌드의 `pwa-512x512.png` 를 사용하며, 설치 파일 아이콘은 `build/icon.png` 입니다.
