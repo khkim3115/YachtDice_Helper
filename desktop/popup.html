@@ -57,6 +57,7 @@
         text-align: left; gap: 4px; min-width: 0;
       }
       .cat .nm { color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat .key { display: inline-block; min-width: 8px; margin-right: 4px; font-size: 8px; color: #50505a; text-transform: uppercase; }
       .cat .pt { font-variant-numeric: tabular-nums; flex: none; }
       .cat.able { cursor: pointer; background: var(--panel2); border-color: var(--panel3); }
       .cat.able .pt { color: var(--emph); }
@@ -84,15 +85,15 @@
     <div id="app">
       <div class="top">
         <span class="logo">설정</span>
-        <button class="x" id="close" title="닫기">✕</button>
+        <button class="x" id="close" title="닫기 (Esc)" tabindex="-1">✕</button>
       </div>
       <div class="dice" id="dice"></div>
-      <button class="roll" id="roll">굴리기</button>
+      <button class="roll" id="roll" tabindex="-1">굴리기</button>
       <div class="cats" id="cats"></div>
       <div class="foot">
         <span class="total" id="total">0<small> 점</small></span>
         <span id="turn">1 / 12</span>
-        <button class="new" id="new" title="새로">↺ 새로</button>
+        <button class="new" id="new" title="새로" tabindex="-1">↺ 새로</button>
       </div>
     </div>
 
@@ -100,7 +101,7 @@
       <div class="overcard">
         <div class="big" id="final">0</div>
         <div class="ko">완료</div>
-        <button class="again" id="again">다시</button>
+        <button class="again" id="again" tabindex="-1">다시</button>
       </div>
     </div>
 
@@ -121,6 +122,9 @@
         { id: 'yacht', nm: '야추', fn: (d) => (maxCount(d) === 5 ? 50 : 0) },
       ];
       const UPPER = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'];
+      // 단축키: 주사위 잠금 1~5, 점수 12칸 = QWERTYUIOP[] (CATS 순서).
+      const HOLD_KEYS = ['1', '2', '3', '4', '5'];
+      const CAT_KEYS = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'];
 
       function counts(d) { const c = [0, 0, 0, 0, 0, 0, 0]; d.forEach((x) => c[x]++); return c; }
       function up(d, n) { return d.filter((x) => x === n).length * n; }
@@ -184,6 +188,7 @@
         diceEl.innerHTML = '';
         state.dice.forEach((v, i) => {
           const d = document.createElement('button');
+          d.tabIndex = -1;
           d.className = 'die' + (state.held[i] ? ' held' : '') + (state.rolled ? '' : ' empty');
           d.textContent = state.rolled ? v : '';
           d.onclick = () => toggleHold(i);
@@ -195,13 +200,14 @@
         rollBtn.disabled = state.rolls <= 0;
 
         catsEl.innerHTML = '';
-        CATS.forEach((cat) => {
+        CATS.forEach((cat, idx) => {
           const filled = state.filled[cat.id] != null;
           const able = !filled && state.rolled;
           const b = document.createElement('button');
+          b.tabIndex = -1;
           b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '');
           const pt = filled ? state.filled[cat.id] : state.rolled ? cat.fn(state.dice) : '·';
-          b.innerHTML = `<span class="nm">${cat.nm}</span><span class="pt">${pt}</span>`;
+          b.innerHTML = `<span class="nm"><span class="key">${CAT_KEYS[idx]}</span>${cat.nm}</span><span class="pt">${pt}</span>`;
           if (able) b.onclick = () => pick(cat);
           catsEl.appendChild(b);
         });
@@ -216,6 +222,22 @@
       document.getElementById('new').onclick = reset;
       document.getElementById('again').onclick = reset;
       document.getElementById('close').onclick = () => window.close();
+
+      // ── 키보드 단축키 ──
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); window.close(); return; }
+        const overOpen = !document.getElementById('over').classList.contains('hidden');
+        if (overOpen) {
+          if (e.key === 'Enter') { e.preventDefault(); reset(); }
+          return;
+        }
+        if (e.code === 'Space') { e.preventDefault(); roll(); return; }
+        const di = HOLD_KEYS.indexOf(e.key);
+        if (di >= 0) { e.preventDefault(); toggleHold(di); return; }
+        const ci = CAT_KEYS.indexOf(e.key.toLowerCase());
+        if (ci >= 0) { e.preventDefault(); pick(CATS[ci]); return; }
+      });
+
       reset();
     </script>
   </body>

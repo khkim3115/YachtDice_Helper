@@ -64,7 +64,13 @@ function createWindow() {
     console.log('[yd] loaded:', win.webContents.getURL());
     if (process.env.YD_SMOKE) {
       showPanel();
-      win.webContents.executeJavaScript('roll()').catch(() => {});
+      win.webContents
+        .executeJavaScript(
+          "document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space'}));" +
+            "document.dispatchEvent(new KeyboardEvent('keydown',{key:'1'}));" +
+            "document.dispatchEvent(new KeyboardEvent('keydown',{key:'3'}));"
+        )
+        .catch(() => {});
       setTimeout(async () => {
         try {
           const img = await win.webContents.capturePage();
