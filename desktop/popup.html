@@ -34,6 +34,7 @@
 
       .dice { display: flex; gap: 4px; justify-content: center; }
       .die {
+        position: relative;
         width: 30px; height: 30px; border-radius: 5px;
         background: var(--panel2); border: 1px solid var(--line); color: var(--emph);
         display: grid; place-items: center; font-size: 15px; font-weight: 700;
@@ -57,7 +58,11 @@
         text-align: left; gap: 4px; min-width: 0;
       }
       .cat .nm { color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .cat .key { display: inline-block; min-width: 8px; margin-right: 4px; font-size: 8px; color: #50505a; text-transform: uppercase; }
+      .k { font-size: 8px; color: #50505a; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+      .cat .k { display: inline-block; min-width: 8px; margin-right: 4px; }
+      .die .k { position: absolute; top: 1px; left: 3px; line-height: 1; }
+      .x .k { margin-right: 4px; }
+      .roll .k, .again .k { margin-left: 5px; }
       .cat .pt { font-variant-numeric: tabular-nums; flex: none; }
       .cat.able { cursor: pointer; background: var(--panel2); border-color: var(--panel3); }
       .cat.able .pt { color: var(--emph); }
@@ -85,7 +90,7 @@
     <div id="app">
       <div class="top">
         <span class="logo">설정</span>
-        <button class="x" id="close" title="닫기 (Esc)" tabindex="-1">✕</button>
+        <button class="x" id="close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
       </div>
       <div class="dice" id="dice"></div>
       <button class="roll" id="roll" tabindex="-1">굴리기</button>
@@ -101,7 +106,7 @@
       <div class="overcard">
         <div class="big" id="final">0</div>
         <div class="ko">완료</div>
-        <button class="again" id="again" tabindex="-1">다시</button>
+        <button class="again" id="again" tabindex="-1">다시<span class="k">Enter</span></button>
       </div>
     </div>
 
@@ -190,13 +195,13 @@
           const d = document.createElement('button');
           d.tabIndex = -1;
           d.className = 'die' + (state.held[i] ? ' held' : '') + (state.rolled ? '' : ' empty');
-          d.textContent = state.rolled ? v : '';
+          d.innerHTML = `<span class="k">${i + 1}</span>` + (state.rolled ? `<span class="face">${v}</span>` : '');
           d.onclick = () => toggleHold(i);
           diceEl.appendChild(d);
         });
 
         const rollBtn = document.getElementById('roll');
-        rollBtn.textContent = state.rolls > 0 ? `굴리기 (${state.rolls})` : '기록';
+        rollBtn.innerHTML = state.rolls > 0 ? `굴리기 (${state.rolls}) <span class="k">Space</span>` : '기록';
         rollBtn.disabled = state.rolls <= 0;
 
         catsEl.innerHTML = '';
@@ -207,7 +212,7 @@
           b.tabIndex = -1;
           b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '');
           const pt = filled ? state.filled[cat.id] : state.rolled ? cat.fn(state.dice) : '·';
-          b.innerHTML = `<span class="nm"><span class="key">${CAT_KEYS[idx]}</span>${cat.nm}</span><span class="pt">${pt}</span>`;
+          b.innerHTML = `<span class="nm"><span class="k">${CAT_KEYS[idx]}</span>${cat.nm}</span><span class="pt">${pt}</span>`;
           if (able) b.onclick = () => pick(cat);
           catsEl.appendChild(b);
         });
