@@ -18,7 +18,6 @@ export function HelperPanel({ advice }: { advice: Advice | null }) {
     body = <div className="helper-off">주사위를 굴리면 최적의 수를 추천해 드려요.</div>;
   } else {
     const keptValues = dice.filter((_, i) => advice.holdMask[i]);
-    const keptText = keptValues.length ? keptValues.join(', ') : '모두 다시';
     const bestKo = CATEGORY_META[advice.bestCategory].ko;
 
     body = (
@@ -38,7 +37,13 @@ export function HelperPanel({ advice }: { advice: Advice | null }) {
             <span className="icon">🎲</span>
             <span className="text">
               <span className="main">
-                <em>{keptText}</em> 보관하고 다시 굴리기
+                {keptValues.length ? (
+                  <>
+                    <em>{keptValues.join(', ')}</em> 보관하고 다시 굴리기
+                  </>
+                ) : (
+                  '모두 다시 굴리기'
+                )}
               </span>
               <span className="sub">기대 향상 +{advice.evGainFromReroll.toFixed(1)}점</span>
             </span>
