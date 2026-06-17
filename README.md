@@ -36,6 +36,29 @@ npm test           # vitest (채점·확률·솔버 정합성)
   `base` 가 `'./'`(상대 경로)라 하위 경로 게시에서도 그대로 동작합니다.
 - **Vercel**: 그대로 import → build 명령 `npm run build`, 출력 `dist`.
 
+## 🖥️ 작업표시줄에서 플레이하기 (PWA 설치)
+
+이 앱은 **설치 가능한 PWA** 라서, 윈도우 작업표시줄/시작 메뉴에서 클릭 한 번으로 바로 띄울 수 있습니다.
+
+1. **Edge / Chrome** 으로 [라이브 데모](https://khkim3115.github.io/YachtDice_Helper/) 접속.
+2. 주소창 오른쪽의 **설치(⊕) 아이콘** 또는 게임 화면 우상단의 **"⬇ 앱 설치"** 버튼 클릭.
+   (메뉴 → "앱 설치 / Install Yacht Dice" 도 가능)
+3. 설치되면 시작 메뉴에 아이콘이 생깁니다. 아이콘 **우클릭 → "작업 표시줄에 고정"**.
+4. 이제 작업표시줄 아이콘을 누르면 **주소창 없는 독립 창**으로 실행됩니다.
+
+> **완전 오프라인 지원** — 서비스 워커가 앱과 헬퍼 데이터(`V.bin`)까지 캐싱하므로,
+> 한 번 실행한 뒤에는 **인터넷 없이도** 작업표시줄에서 바로 플레이할 수 있습니다.
+> 새 버전이 배포되면 하단에 "업데이트" 토스트가 떠서 최신본으로 갱신할 수 있습니다.
+
+아이콘을 바꾸려면 [`public/icon.svg`](public/icon.svg) 를 수정한 뒤 다시 생성합니다:
+
+```bash
+npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, favicon 재생성
+```
+
+> PWA(서비스 워커)는 `npm run dev` 에서는 꺼져 있습니다. 설치·오프라인을 로컬에서 확인하려면
+> `npm run build && npm run preview` 로 띄워 Edge/Chrome 에서 테스트하세요.
+
 ## 게임 규칙 (한국 모바일 앱 관례)
 
 > 게임 안에서 우측 상단 **❓ 도움말** 버튼으로 규칙·플레이 방법·사이트 설명을 볼 수 있습니다.
@@ -84,7 +107,10 @@ src/
     buildValueTable.ts  후방귀납 → public/V.bin (Node)
   store/         Zustand 게임 상태 + useAdvice 훅
   ui/            React 컴포넌트
+    InstallButton.tsx  PWA 설치 버튼 (beforeinstallprompt)
+    PwaStatus.tsx      서비스 워커 등록 + 오프라인/업데이트 토스트
 public/V.bin     사전계산 가치 테이블 (~1MB)
+public/icon.svg  앱 아이콘 소스 (PWA 아이콘 생성 원본)
 ```
 
 ## 검증 (sanity checks)

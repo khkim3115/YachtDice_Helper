@@ -8,6 +8,8 @@ import { HelperPanel } from './HelperPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { HelpPanel } from './HelpPanel';
 import { GameOver } from './GameOver';
+import { InstallButton } from './InstallButton';
+import { PwaStatus } from './PwaStatus';
 
 export default function App() {
   const card = useGameStore((s) => s.card);
@@ -76,6 +78,7 @@ export default function App() {
           <button className="help-btn" onClick={() => setHelpOpen(true)} aria-label="도움말">
             ❓
           </button>
+          <InstallButton />
           <button className="gear" onClick={() => setSettingsOpen(true)} aria-label="설정">
             ⚙️
           </button>
@@ -97,6 +100,7 @@ export default function App() {
       {helpOpen && <HelpPanel onClose={handleHelpClose} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       {gameOver && resultOpen && <GameOver />}
+      <PwaStatus />
     </div>
   );
 }
