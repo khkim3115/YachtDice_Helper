@@ -24,8 +24,11 @@ npm run dist
 
 > **배포(GitHub Releases)** — 웹 홈의 *앱으로 받기 → 트레이 앱* 버튼은 고정 자산
 > `releases/latest/download/YachtDice-Tray-Setup.exe` 를 가리킵니다([`src/ui/DownloadCards.tsx`](../src/ui/DownloadCards.tsx)).
-> 빌드 산출물이 이미 그 이름이므로 **릴리스에 그대로 업로드**하면 링크가 항상 최신본을 받습니다.
-> (자산 이름을 바꾸려면 `artifactName` 도 함께 바꿔야 링크가 유지됩니다.)
+>
+> **자동 빌드** — GitHub에서 **릴리스를 publish 하면** [`.github/workflows/desktop-release.yml`](../.github/workflows/desktop-release.yml)
+> 가 `windows-latest` 에서 `npm run dist` 로 설치 파일을 빌드해 **그 릴리스에 자동 첨부**합니다.
+> 따라서 보통은 *릴리스 만들기*만 하면 위 다운로드 링크가 최신본을 받습니다. (수동 빌드는 아래 절차대로 직접
+> 만들어 업로드해도 됩니다. 자산 이름을 바꾸려면 `artifactName` 도 함께 바꿔야 링크가 유지됩니다.)
 
 ## 개발 실행(설치 없이)
 
