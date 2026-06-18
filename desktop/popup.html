@@ -102,7 +102,31 @@
       .lbnm { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .lbsc { color: var(--emph); font-weight: 700; font-variant-numeric: tabular-nums; }
       .lb-load { color: var(--mut); font-size: 11px; text-align: center; padding: 16px 0; }
+
+      /* ── 멀티플레이 ── */
+      .hidden { display: none !important; }
+      #mp { height: 100vh; }
+      .mp-screen { height: 100vh; }
+      #mp-lobby { display: flex; flex-direction: column; height: 100vh; padding: 7px 8px 8px; gap: 6px; }
+      .mp-form { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+      .mp-or { text-align: center; font-size: 10px; color: var(--mut); margin: 2px 0; }
+      .mp-code-row { font-size: 12px; color: var(--txt); text-align: center; margin-top: 2px; }
+      .mp-code-row b { color: var(--emph); letter-spacing: 2px; font-size: 15px; }
+      .mp-players { display: flex; flex-direction: column; gap: 4px; }
+      .mp-tag { font-size: 8px; color: var(--mut); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; }
+      .mp-hint { font-size: 9px; color: var(--mut); }
+      #mp-game { display: flex; gap: 6px; height: 100vh; padding: 7px 8px 8px; }
+      .mp-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+      .mp-side { flex: 0 0 130px; border-left: 1px solid var(--line); padding-left: 6px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+      .mp-side .ph { font-size: 9px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+      .mp-prow { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 4px 6px; font-size: 10.5px; }
+      .mp-prow.turn { border-color: #56565f; background: var(--panel2); }
+      .mp-prow .pn { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .mp-prow .ps { color: var(--emph); font-weight: 700; font-variant-numeric: tabular-nums; }
+      .mp-prow .pf { font-size: 8px; color: var(--mut); font-weight: 600; }
+      #mp-over { display: grid; place-items: center; height: 100vh; }
     </style>
+    <script src="./vendor/supabase.js"></script>
   </head>
   <body>
     <div id="app">
@@ -120,6 +144,69 @@
         <span class="total" id="total">0<small> 점</small></span>
         <span id="turn">1 / 12</span>
         <button class="new" id="new" title="새로" tabindex="-1">↺ 새로</button>
+      </div>
+    </div>
+
+    <!-- ── 멀티플레이 컨테이너(솔로일 땐 hidden) ── -->
+    <div id="mp" class="hidden">
+      <!-- 로비 -->
+      <div id="mp-lobby" class="mp-screen hidden">
+        <div class="top">
+          <span class="logo">멀티플레이</span>
+          <button class="x" id="mp-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        </div>
+        <div id="mp-entry" class="mp-form">
+          <input class="lb-input" id="mp-name" maxlength="24" placeholder="닉네임" />
+          <button class="lb-btn" id="mp-create" tabindex="-1">방 만들기</button>
+          <div class="mp-or">— 또는 —</div>
+          <input class="lb-input" id="mp-code" maxlength="6" placeholder="방 코드" />
+          <button class="lb-btn" id="mp-join" tabindex="-1">참가</button>
+          <div class="lb-msg" id="mp-msg"></div>
+        </div>
+        <div id="mp-room" class="mp-form hidden">
+          <div class="mp-code-row">방 코드 <b id="mp-code-show"></b></div>
+          <div class="mp-players" id="mp-players"></div>
+          <button class="lb-btn" id="mp-start" tabindex="-1">게임 시작</button>
+          <button class="new" id="mp-room-leave" tabindex="-1">방 나가기</button>
+          <div class="lb-msg" id="mp-room-msg"></div>
+        </div>
+      </div>
+
+      <!-- 게임 -->
+      <div id="mp-game" class="mp-screen hidden">
+        <div class="mp-main">
+          <div class="top">
+            <span class="logo" id="mp-turn-label">멀티</span>
+            <div class="top-btns">
+              <button class="x" id="mp-game-quit" title="방 나가기" tabindex="-1">나가기</button>
+              <button class="x" id="mp-game-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+            </div>
+          </div>
+          <div class="dice" id="mp-dice"></div>
+          <button class="roll" id="mp-roll" tabindex="-1">굴리기</button>
+          <div class="cats" id="mp-cats"></div>
+          <div class="foot">
+            <span class="total" id="mp-total">0<small> 점</small></span>
+            <span id="mp-round">1 / 12</span>
+            <span class="mp-hint" title="상대 점수 보기"><span class="k">`</span> 상대</span>
+          </div>
+          <div class="lb-msg" id="mp-game-msg"></div>
+        </div>
+        <div class="mp-side hidden" id="mp-side"></div>
+      </div>
+
+      <!-- 종료 -->
+      <div id="mp-over" class="mp-screen hidden">
+        <div class="overcard">
+          <div class="big" id="mp-final">0</div>
+          <div class="ko" id="mp-result">완료</div>
+          <button class="again" id="mp-again" tabindex="-1">로비로<span class="k">Enter</span></button>
+          <div class="lb-reg">
+            <input class="lb-input" id="mp-lb-name" maxlength="24" placeholder="닉네임" />
+            <button class="lb-btn" id="mp-lb-submit" tabindex="-1">🏆 리더보드 등록</button>
+            <div class="lb-msg" id="mp-lb-msg"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -344,6 +431,8 @@
 
       // ── 키보드 단축키 ──
       document.addEventListener('keydown', (e) => {
+        // 멀티 화면이 떠 있으면 솔로 핸들러는 무시(멀티 전용 핸들러가 처리).
+        if (!document.getElementById('mp').classList.contains('hidden')) return;
         // 리더보드 오버레이가 떠 있으면 Esc/Enter 로 닫기(창은 유지).
         if (!lbOver.classList.contains('hidden')) {
           if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); closeLb(); }
@@ -368,6 +457,439 @@
       });
 
       reset();
+    </script>
+
+    <script>
+      // ── 온라인 멀티플레이 (Supabase 실시간; supabase-js 동봉) ──
+      // 서버 권위. 웹앱(src/store/multiplayerStore.ts, src/lib/supabase.ts)을 바닐라로 포팅.
+      // SB_URL/SB_KEY/SB_HEADERS/escapeHtml/CATS/CAT_KEYS/HOLD_KEYS/hidePopup 는 위 스크립트의 전역 재사용.
+      const mpc = window.supabase.createClient(SB_URL, SB_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      });
+
+      // 로컬 카테고리 id ↔ 서버 camelCase id (양방향). assign 은 반드시 서버 id 로.
+      const TO_SERVER = {
+        ones: 'ones', twos: 'twos', threes: 'threes', fours: 'fours', fives: 'fives', sixes: 'sixes',
+        choice: 'choice', fourkind: 'fourKind', fullhouse: 'fullHouse',
+        small: 'smallStraight', large: 'largeStraight', yacht: 'yacht',
+      };
+      const UPPER_SRV = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'];
+      const LOWER_SRV = ['choice', 'fourKind', 'fullHouse', 'smallStraight', 'largeStraight', 'yacht'];
+
+      // 에러 한글화(multiplayerStore.ts ERROR_KO 포팅).
+      const MP_ERR_KO = [
+        ['Anonymous sign-ins are disabled', '익명 로그인이 비활성화되어 있습니다. Supabase 대시보드에서 켜주세요.'],
+        ['room not found', '방을 찾을 수 없습니다. 코드를 확인하세요.'],
+        ['game already started', '이미 시작된 게임입니다.'],
+        ['room is full', '방이 가득 찼습니다.'],
+        ['need at least 2 players', '2명 이상이어야 시작할 수 있습니다.'],
+        ['only host can start', '방장만 시작할 수 있습니다.'],
+        ['not your turn', '당신의 차례가 아닙니다.'],
+        ['category already filled', '이미 기록된 칸입니다.'],
+        ['display name required', '닉네임을 입력하세요.'],
+      ];
+      function mpHumanError(e) {
+        const msg = (e && (e.message || e.error_description)) || String(e);
+        if (/Failed to fetch|NetworkError|fetch failed/i.test(msg)) return '연결 실패 (오프라인?)';
+        for (const [needle, ko] of MP_ERR_KO) if (msg.includes(needle)) return ko;
+        return msg;
+      }
+
+      // ── 인증(익명, 멱등) + RPC ──
+      let mpUserId = null;
+      async function ensureAnon() {
+        const { data: ex } = await mpc.auth.getSession();
+        if (ex.session && ex.session.user) return (mpUserId = ex.session.user.id);
+        const { data, error } = await mpc.auth.signInAnonymously();
+        if (error) throw error;
+        return (mpUserId = (data.user && data.user.id) || null);
+      }
+      async function rpc(name, params) {
+        const { data, error } = await mpc.rpc(name, params || {});
+        if (error) throw error;
+        return data;
+      }
+
+      // snake → camel.
+      function mapRoom(r) {
+        return {
+          id: r.id, code: r.code, status: r.status, helperAllowed: !!r.helper_allowed,
+          maxPlayers: r.max_players, hostId: r.host_id, currentSeat: r.current_seat, round: r.round,
+          dice: r.dice || [], held: r.held || [], rollsUsed: r.rolls_used,
+          winnerSeat: r.winner_seat, isTie: !!r.is_tie,
+        };
+      }
+      function mapPlayer(p) {
+        return {
+          id: p.id, userId: p.user_id, seat: p.seat, displayName: p.display_name,
+          isHost: !!p.is_host, connected: !!p.connected, scorecard: p.scorecard || { scores: {} },
+        };
+      }
+      function scorecardTotal(sc) {
+        const s = (sc && sc.scores) || {};
+        const u = UPPER_SRV.reduce((a, c) => a + (s[c] || 0), 0);
+        const l = LOWER_SRV.reduce((a, c) => a + (s[c] || 0), 0);
+        return u + (u >= 63 ? 35 : 0) + l;
+      }
+
+      // ── 상태 ──
+      let mpRoom = null, mpPlayers = [], mySeat = null, mpChannel = null, mpSideOpen = false;
+
+      function recomputeMySeat() {
+        const me = mpPlayers.find((p) => p.userId === mpUserId);
+        mySeat = me ? me.seat : null;
+      }
+      function mySc() {
+        const me = mpPlayers.find((p) => p.seat === mySeat);
+        return (me && me.scorecard && me.scorecard.scores) || {};
+      }
+
+      // ── 화면 전환 ──
+      function currentScreenName() {
+        if (!document.getElementById('app').classList.contains('hidden')) return 'solo';
+        for (const id of ['mp-lobby', 'mp-game', 'mp-over'])
+          if (!document.getElementById(id).classList.contains('hidden')) return id;
+        return 'mp-lobby';
+      }
+      function showScreen(name) {
+        const solo = name === 'solo';
+        document.getElementById('app').classList.toggle('hidden', !solo);
+        document.getElementById('mp').classList.toggle('hidden', solo);
+        if (!solo) {
+          document.getElementById('over').classList.add('hidden');
+          document.getElementById('lb-over').classList.add('hidden');
+        }
+        ['mp-lobby', 'mp-game', 'mp-over'].forEach((id) =>
+          document.getElementById(id).classList.toggle('hidden', id !== name));
+        if (name !== 'mp-game' && mpSideOpen) setSide(false); // 게임 밖에선 패널 접기
+      }
+      function mpScreenForStatus(s) {
+        return s === 'playing' ? 'mp-game' : s === 'finished' ? 'mp-over' : 'mp-lobby';
+      }
+
+      // ── 실시간 구독 + 리페치 ──
+      function subscribeRoom(roomId) {
+        if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
+        mpChannel = mpc
+          .channel('room:' + roomId)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'id=eq.' + roomId }, () => refetchRoom())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: 'room_id=eq.' + roomId }, () => refetchRoom())
+          .subscribe();
+      }
+      async function refetchRoom() {
+        if (!mpRoom) return;
+        const id = mpRoom.id;
+        try {
+          const [roomRes, playersRes] = await Promise.all([
+            mpc.from('rooms').select('*').eq('id', id).maybeSingle(),
+            mpc.from('room_players').select('*').eq('room_id', id).order('seat'),
+          ]);
+          if (!roomRes.data) { handleRoomGone(); return; }
+          mpRoom = mapRoom(roomRes.data);
+          if (playersRes.data) mpPlayers = playersRes.data.map(mapPlayer);
+          recomputeMySeat();
+          routeMpScreen();
+          renderMp();
+        } catch (e) { /* 오프라인 — 다음 이벤트/재오픈 때 갱신 */ }
+      }
+      function routeMpScreen() {
+        if (!mpRoom) return;
+        if (mpRoom.status === 'abandoned') { handleRoomGone(); return; }
+        const target = mpScreenForStatus(mpRoom.status);
+        if (currentScreenName() !== target) {
+          showScreen(target);
+          if (target === 'mp-over') initMpOver();
+        }
+      }
+      function handleRoomGone() {
+        if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
+        mpRoom = null; mpPlayers = []; mySeat = null;
+        try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
+        showScreen('mp-lobby'); renderLobby();
+        setLobbyMsg('방이 종료되었습니다.');
+      }
+
+      // ── 렌더: 로비 ──
+      function setLobbyMsg(t) { const e = document.getElementById('mp-msg'); if (e) e.textContent = t || ''; }
+      function setRoomMsg(t) { const e = document.getElementById('mp-room-msg'); if (e) e.textContent = t || ''; }
+      function setGameMsg(t) { const e = document.getElementById('mp-game-msg'); if (e) e.textContent = t || ''; }
+
+      function renderLobby() {
+        const inRoom = !!mpRoom;
+        document.getElementById('mp-entry').classList.toggle('hidden', inRoom);
+        document.getElementById('mp-room').classList.toggle('hidden', !inRoom);
+        if (!inRoom) {
+          try { document.getElementById('mp-name').value = localStorage.getItem('yd_mp_name') || ''; } catch (_) {}
+          return;
+        }
+        document.getElementById('mp-code-show').textContent = mpRoom.code;
+        document.getElementById('mp-players').innerHTML = mpPlayers
+          .map((p) => {
+            const host = p.isHost ? ' <span class="mp-tag">방장</span>' : '';
+            const me = p.userId === mpUserId ? ' <span class="mp-tag">나</span>' : '';
+            return `<div class="mp-prow"><span class="pn">${escapeHtml(p.displayName)}${host}${me}</span>` +
+              `<span class="ps">${p.connected ? '' : '·'}</span></div>`;
+          })
+          .join('');
+        const amHost = mpRoom.hostId === mpUserId;
+        const startBtn = document.getElementById('mp-start');
+        startBtn.classList.toggle('hidden', !amHost);
+        startBtn.disabled = mpPlayers.length < 2;
+        setRoomMsg('');
+      }
+
+      // ── 렌더: 게임 보드 ──
+      function renderMpGame() {
+        const room = mpRoom;
+        if (!room) return;
+        const myTurn = mySeat !== null && mySeat === room.currentSeat;
+        const dice = room.dice && room.dice.length === 5 ? room.dice : null;
+        const held = room.held && room.held.length === 5 ? room.held : [false, false, false, false, false];
+        const rollsUsed = room.rollsUsed || 0;
+
+        const active = mpPlayers.find((p) => p.seat === room.currentSeat);
+        document.getElementById('mp-turn-label').textContent = myTurn
+          ? '내 차례'
+          : (active ? active.displayName : '상대') + ' 차례';
+
+        const dEl = document.getElementById('mp-dice');
+        dEl.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+          const b = document.createElement('button');
+          b.tabIndex = -1;
+          b.className = 'die' + (held[i] ? ' held' : '') + (dice ? '' : ' empty');
+          b.innerHTML = `<span class="k">${i + 1}</span>` + (dice ? `<span class="face">${dice[i]}</span>` : '');
+          if (myTurn && dice && rollsUsed < 3) b.onclick = () => mpToggleHold(i);
+          dEl.appendChild(b);
+        }
+
+        const rollBtn = document.getElementById('mp-roll');
+        const rollsLeft = 3 - rollsUsed;
+        rollBtn.textContent = myTurn ? (rollsLeft > 0 ? `굴리기 (${rollsLeft})` : '기록하세요') : '상대 차례…';
+        rollBtn.disabled = !(myTurn && rollsLeft > 0);
+
+        const cEl = document.getElementById('mp-cats');
+        cEl.innerHTML = '';
+        const scores = mySc();
+        CATS.forEach((cat, idx) => {
+          const srv = TO_SERVER[cat.id];
+          const filled = scores[srv] != null;
+          const able = myTurn && dice && rollsUsed > 0 && !filled;
+          const b = document.createElement('button');
+          b.tabIndex = -1;
+          b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '');
+          const pt = filled ? scores[srv] : dice && rollsUsed > 0 ? cat.fn(dice) : '·';
+          b.innerHTML = `<span class="nm"><span class="k">${CAT_KEYS[idx]}</span>${cat.nm}</span><span class="pt">${pt}</span>`;
+          if (able) b.onclick = () => mpPick(cat);
+          cEl.appendChild(b);
+        });
+
+        document.getElementById('mp-total').innerHTML = `${scorecardTotal({ scores })}<small> 점</small>`;
+        document.getElementById('mp-round').textContent = `${Math.min((room.round || 0) + 1, 12)} / 12`;
+        if (mpSideOpen) renderSide();
+      }
+
+      // ── 렌더: 상대 점수 패널(백틱) ──
+      function setSide(show) {
+        mpSideOpen = !!show;
+        document.getElementById('mp-side').classList.toggle('hidden', !mpSideOpen);
+        if (window.yd && window.yd.setSide) window.yd.setSide(mpSideOpen);
+        if (mpSideOpen) renderSide();
+      }
+      function toggleSide() { setSide(!mpSideOpen); }
+      function renderSide() {
+        document.getElementById('mp-side').innerHTML =
+          '<div class="ph">플레이어</div>' +
+          mpPlayers
+            .map((p) => {
+              const filled = Object.keys((p.scorecard && p.scorecard.scores) || {}).length;
+              const turn = mpRoom && p.seat === mpRoom.currentSeat;
+              return `<div class="mp-prow${turn ? ' turn' : ''}">` +
+                `<span class="pn">${turn ? '▸ ' : ''}${escapeHtml(p.displayName)}</span>` +
+                `<span class="ps">${scorecardTotal(p.scorecard)}<span class="pf"> ${filled}/12</span></span></div>`;
+            })
+            .join('');
+      }
+
+      // ── 렌더: 종료 ──
+      let mpLbSubmitted = false;
+      function initMpOver() {
+        const msg = document.getElementById('mp-lb-msg');
+        const btn = document.getElementById('mp-lb-submit');
+        const nm = document.getElementById('mp-lb-name');
+        if (msg) msg.textContent = '';
+        if (btn) btn.disabled = false;
+        mpLbSubmitted = false;
+        try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || localStorage.getItem('yd_mp_name') || ''; } catch (_) {}
+      }
+      function renderMpOver() {
+        const room = mpRoom;
+        if (!room) return;
+        document.getElementById('mp-final').textContent = scorecardTotal({ scores: mySc() });
+        let result;
+        if (room.isTie) result = '무승부';
+        else {
+          const w = mpPlayers.find((p) => p.seat === room.winnerSeat);
+          result = w && w.seat === mySeat ? '🏆 승리!' : (w ? escapeHtml(w.displayName) : '상대') + ' 승';
+        }
+        document.getElementById('mp-result').innerHTML = result;
+      }
+      async function mpSubmitScore() {
+        if (mpLbSubmitted) return;
+        const input = document.getElementById('mp-lb-name');
+        const nm = input.value.trim();
+        if (!nm) { input.focus(); return; }
+        mpLbSubmitted = true;
+        const btn = document.getElementById('mp-lb-submit');
+        const msg = document.getElementById('mp-lb-msg');
+        btn.disabled = true; msg.textContent = '등록 중…';
+        try {
+          const myTotal = scorecardTotal({ scores: mySc() });
+          const res = await fetch(SB_URL + '/rest/v1/rpc/submit_score', {
+            method: 'POST', headers: SB_HEADERS,
+            body: JSON.stringify({ p_nickname: nm, p_score: myTotal, p_mode: 'multi' }),
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          try { localStorage.setItem('yd_lb_name', nm); } catch (_) {}
+          msg.textContent = '✓ 등록 완료';
+        } catch (e) {
+          mpLbSubmitted = false; msg.textContent = '실패 (오프라인?)'; btn.disabled = false;
+        }
+      }
+
+      function renderMp() {
+        const s = currentScreenName();
+        if (s === 'mp-lobby') renderLobby();
+        else if (s === 'mp-game') renderMpGame();
+        else if (s === 'mp-over') renderMpOver();
+      }
+
+      // ── 액션(RPC) ──
+      async function enterRoom(roomId) {
+        mpRoom = { id: roomId, status: 'lobby', code: '', dice: [], held: [], rollsUsed: 0 };
+        subscribeRoom(roomId);
+        await refetchRoom();
+      }
+      async function mpCreate() {
+        const name = document.getElementById('mp-name').value.trim();
+        if (!name) { document.getElementById('mp-name').focus(); return; }
+        setLobbyMsg('만드는 중…');
+        try {
+          await ensureAnon();
+          const data = await rpc('create_room', { p_display_name: name, p_helper_allowed: false, p_max_players: 4 });
+          try { localStorage.setItem('yd_mp_name', name); localStorage.setItem('yd_mp_code', data.code); } catch (_) {}
+          await enterRoom(data.room_id);
+        } catch (e) { setLobbyMsg(mpHumanError(e)); }
+      }
+      async function mpJoin() {
+        const name = document.getElementById('mp-name').value.trim();
+        const code = (document.getElementById('mp-code').value || '').trim().toUpperCase();
+        if (!name) { document.getElementById('mp-name').focus(); return; }
+        if (!code) { document.getElementById('mp-code').focus(); return; }
+        setLobbyMsg('참가 중…');
+        try {
+          await ensureAnon();
+          const data = await rpc('join_room', { p_code: code, p_display_name: name });
+          try { localStorage.setItem('yd_mp_name', name); localStorage.setItem('yd_mp_code', data.code); } catch (_) {}
+          await enterRoom(data.room_id);
+        } catch (e) { setLobbyMsg(mpHumanError(e)); }
+      }
+      async function mpStart() {
+        if (!mpRoom) return;
+        try { await rpc('start_game', { p_room: mpRoom.id }); }
+        catch (e) { setRoomMsg(mpHumanError(e)); }
+      }
+      async function mpRoll() {
+        if (!mpRoom) return;
+        setGameMsg('');
+        try { await rpc('roll_dice', { p_room: mpRoom.id }); }
+        catch (e) { setGameMsg(mpHumanError(e)); }
+      }
+      async function mpToggleHold(i) {
+        if (!mpRoom) return;
+        const base = mpRoom.held && mpRoom.held.length === 5 ? mpRoom.held.slice() : [false, false, false, false, false];
+        base[i] = !base[i];
+        mpRoom.held = base; renderMpGame(); // 낙관적(서버 스냅샷이 곧 덮어씀)
+        try { await rpc('set_held', { p_room: mpRoom.id, p_held: base }); }
+        catch (e) { setGameMsg(mpHumanError(e)); }
+      }
+      async function mpPick(cat) {
+        if (!mpRoom) return;
+        setGameMsg('');
+        try { await rpc('assign_category', { p_room: mpRoom.id, p_category: TO_SERVER[cat.id] }); }
+        catch (e) { setGameMsg(mpHumanError(e)); }
+      }
+      async function mpLeave() {
+        const id = mpRoom && mpRoom.id;
+        if (id) { try { await rpc('leave_room', { p_room: id }); } catch (_) {} }
+        if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
+        mpRoom = null; mpPlayers = []; mySeat = null;
+        try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
+        showScreen('mp-lobby'); renderLobby(); setLobbyMsg('');
+      }
+
+      // ── 멀티 진입(트레이 '멀티플레이') ──
+      async function enterMp() {
+        if (mpRoom) { showScreen(mpScreenForStatus(mpRoom.status)); renderMp(); return; }
+        showScreen('mp-lobby'); renderLobby(); setLobbyMsg('');
+        try { await ensureAnon(); } catch (e) { setLobbyMsg(mpHumanError(e)); return; }
+        let code = null, name = null;
+        try { code = localStorage.getItem('yd_mp_code'); name = localStorage.getItem('yd_mp_name'); } catch (_) {}
+        if (code && name) {
+          setLobbyMsg('이전 방 확인 중…');
+          try {
+            const data = await rpc('join_room', { p_code: code, p_display_name: name });
+            await enterRoom(data.room_id);
+          } catch (e) {
+            try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
+            setLobbyMsg(''); renderLobby();
+          }
+        }
+      }
+
+      // ── 버튼/키보드 배선 ──
+      document.getElementById('mp-create').onclick = mpCreate;
+      document.getElementById('mp-join').onclick = mpJoin;
+      document.getElementById('mp-start').onclick = mpStart;
+      document.getElementById('mp-roll').onclick = mpRoll;
+      document.getElementById('mp-leave').onclick = hidePopup; // 로비 ✕ = 숨김(좌석 유지)
+      document.getElementById('mp-room-leave').onclick = mpLeave; // 방 나가기
+      document.getElementById('mp-game-leave').onclick = hidePopup; // 게임 ✕ = 숨김
+      document.getElementById('mp-game-quit').onclick = mpLeave; // 게임에서 방 나가기
+      document.getElementById('mp-again').onclick = mpLeave; // 종료 → 로비로
+      document.getElementById('mp-lb-submit').onclick = mpSubmitScore;
+
+      document.addEventListener('keydown', (e) => {
+        const screen = currentScreenName();
+        if (screen === 'solo') return; // 솔로는 기존 핸들러가 처리
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'INPUT') {
+          if (e.key === 'Escape') { e.preventDefault(); document.activeElement.blur(); }
+          return; // 닉네임/코드 입력 중엔 단축키 가로채지 않음
+        }
+        if (e.key === 'Escape') { e.preventDefault(); hidePopup(); return; }
+        if (screen === 'mp-game') {
+          if (e.key === '`') { e.preventDefault(); toggleSide(); return; }
+          const room = mpRoom;
+          if (!room) return;
+          const myTurn = mySeat !== null && mySeat === room.currentSeat;
+          if (!myTurn) return;
+          const hasDice = room.dice && room.dice.length === 5;
+          const rollsUsed = room.rollsUsed || 0;
+          if (e.code === 'Space') { e.preventDefault(); if (rollsUsed < 3) mpRoll(); return; }
+          const di = HOLD_KEYS.indexOf(e.key);
+          if (di >= 0) { e.preventDefault(); if (hasDice && rollsUsed > 0 && rollsUsed < 3) mpToggleHold(di); return; }
+          const ci = CAT_KEYS.indexOf(e.key.toLowerCase());
+          if (ci >= 0) { e.preventDefault(); if (hasDice && rollsUsed > 0) mpPick(CATS[ci]); return; }
+        } else if (screen === 'mp-over' && e.key === 'Enter') {
+          e.preventDefault(); mpLeave();
+        }
+      });
+
+      // 트레이 메뉴(싱글/멀티)가 보낸 모드 구독.
+      if (window.yd && window.yd.onMode) {
+        window.yd.onMode((mode) => { if (mode === 'mp') enterMp(); else showScreen('solo'); });
+      }
     </script>
   </body>
 </html>
