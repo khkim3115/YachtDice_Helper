@@ -22,6 +22,7 @@
       "main.js",
       "preload.js",
       "popup.html",
+      "vendor/supabase.js",
       "package.json"
     ],
     "extraResources": [
