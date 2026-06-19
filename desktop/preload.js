@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld('yd', {
   onMode: (cb) => ipcRenderer.on('yd-mode', (_e, mode) => cb(mode)),
   // 멀티 게임에서 백틱으로 상대 점수 패널을 펼치면 창 폭을 넓혀달라고 요청.
   setSide: (show) => ipcRenderer.send('yd-side', !!show),
+  // 테마: 메인이 보낸 초기/변경 테마를 렌더러가 구독.
+  onTheme: (cb) => ipcRenderer.on('yd-theme', (_e, mode) => cb(mode)),
+  // 렌더러의 ☀️/🌙 토글을 메인에 전달(settings.json 영속화).
+  setTheme: (mode) => ipcRenderer.send('yd-set-theme', mode === 'light' ? 'light' : 'dark'),
 });

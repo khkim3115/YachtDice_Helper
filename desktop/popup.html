@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>설정</title>
+    <script>
+      // 첫 페인트 전에 테마 적용(깜빡임 방지). localStorage 는 캐시일 뿐 —
+      // 진짜 출처는 메인의 settings.json 이며, 로드 직후 yd.onTheme 로 덮어쓴다.
+      (function () {
+        try {
+          var m = localStorage.getItem('yd_theme');
+          document.documentElement.dataset.theme = m === 'light' ? 'light' : 'dark';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
     <style>
       /* 눈에 띄지 않게 — 어두운 단색(검정/회색)만. 파랑/노랑/초록 없음. */
       :root {
@@ -15,6 +27,24 @@
         --txt: #c6c6cd;
         --mut: #71717a;
         --emph: #d7d7de;
+        --hold: #56565f; /* held-die / focus / 현재 턴 테두리 */
+        --klabel: #50505a; /* .k 단축키 라벨 */
+        --overlay: rgba(0, 0, 0, 0.9); /* 게임오버·리더보드 오버레이 배경 */
+      }
+      /* 라이트 테마 — 다크 :root 를 덮어쓴다. 파랑/노랑/초록 없이 밝은 단색(흰/회색)만.
+         배경/패널은 밝게 뒤집되 위계(bg < panel < panel2 < panel3)는 유지, 글자는 어둡게. */
+      :root[data-theme='light'] {
+        --bg: #f4f4f5;
+        --panel: #ffffff;
+        --panel2: #f1f1f3;
+        --panel3: #e6e6e9;
+        --line: #d8d8dd;
+        --txt: #3f3f46;
+        --mut: #8a8a93;
+        --emph: #18181b;
+        --hold: #a8a8b0;
+        --klabel: #a1a1aa;
+        --overlay: rgba(255, 255, 255, 0.92);
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; }
@@ -41,7 +71,7 @@
         cursor: pointer; flex: none;
       }
       .die.empty { color: transparent; background: var(--panel); }
-      .die.held { border-color: #56565f; background: var(--panel3); }
+      .die.held { border-color: var(--hold); background: var(--panel3); }
 
       .roll {
         border: 1px solid var(--line); border-radius: 5px; padding: 7px; font-size: 12px; font-weight: 600;
@@ -58,7 +88,7 @@
         text-align: left; gap: 4px; min-width: 0;
       }
       .cat .nm { color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .k { font-size: 8px; color: #50505a; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+      .k { font-size: 8px; color: var(--klabel); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
       .cat .k { display: inline-block; min-width: 8px; margin-right: 4px; }
       .die .k { position: absolute; top: 1px; left: 3px; line-height: 1; }
       .x .k { margin-right: 4px; }
@@ -77,7 +107,7 @@
       .new { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 11px; }
       .new:hover { color: var(--txt); }
 
-      .over { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.9); display: grid; place-items: center; }
+      .over { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; }
       .over.hidden { display: none; }
       .overcard { text-align: center; }
       .overcard .big { font-size: 36px; font-weight: 700; color: var(--emph); line-height: 1; }
@@ -89,7 +119,7 @@
       .top-btns { display: flex; align-items: center; gap: 2px; }
       .lb-reg { margin: 12px auto 0; display: flex; flex-direction: column; gap: 5px; width: 152px; }
       .lb-input { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; color: var(--txt); padding: 5px 7px; font-size: 11px; font-family: inherit; outline: none; text-align: center; }
-      .lb-input:focus { border-color: #56565f; }
+      .lb-input:focus { border-color: var(--hold); }
       .lb-btn { border: 1px solid var(--line); border-radius: 4px; background: var(--panel2); color: var(--txt); padding: 5px; font-size: 11px; font-weight: 600; cursor: pointer; }
       .lb-btn:hover { background: var(--panel3); }
       .lb-btn:disabled { opacity: 0.5; cursor: default; }
@@ -120,7 +150,7 @@
       .mp-side { flex: 0 0 130px; border-left: 1px solid var(--line); padding-left: 6px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
       .mp-side .ph { font-size: 9px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
       .mp-prow { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 4px 6px; font-size: 10.5px; }
-      .mp-prow.turn { border-color: #56565f; background: var(--panel2); }
+      .mp-prow.turn { border-color: var(--hold); background: var(--panel2); }
       .mp-prow .pn { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .mp-prow .ps { color: var(--emph); font-weight: 700; font-variant-numeric: tabular-nums; }
       .mp-prow .pf { font-size: 8px; color: var(--mut); font-weight: 600; }
@@ -133,6 +163,7 @@
       <div class="top">
         <span class="logo">설정</span>
         <div class="top-btns">
+          <button class="x theme-toggle" id="theme-solo" title="라이트 모드로" tabindex="-1">☀️</button>
           <button class="x" id="lb-open" title="리더보드" tabindex="-1">🏆</button>
           <button class="x" id="close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
         </div>
@@ -153,7 +184,10 @@
       <div id="mp-lobby" class="mp-screen hidden">
         <div class="top">
           <span class="logo">멀티플레이</span>
-          <button class="x" id="mp-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+          <div class="top-btns">
+            <button class="x theme-toggle" id="theme-mpl" title="라이트 모드로" tabindex="-1">☀️</button>
+            <button class="x" id="mp-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+          </div>
         </div>
         <div id="mp-entry" class="mp-form">
           <input class="lb-input" id="mp-name" maxlength="24" placeholder="닉네임" />
@@ -178,6 +212,7 @@
           <div class="top">
             <span class="logo" id="mp-turn-label">멀티</span>
             <div class="top-btns">
+              <button class="x theme-toggle" id="theme-mpg" title="라이트 모드로" tabindex="-1">☀️</button>
               <button class="x" id="mp-game-quit" title="방 나가기" tabindex="-1">나가기</button>
               <button class="x" id="mp-game-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
             </div>
@@ -361,6 +396,25 @@
       // 닫지 않고 숨기기만(상태 유지). preload 미주입 시 close 로 폴백.
       const hidePopup = () => (window.yd ? window.yd.hide() : window.close());
       document.getElementById('close').onclick = hidePopup;
+
+      // ── 테마 토글(☀️/🌙) — 모든 화면 헤더의 .theme-toggle 버튼 공용 ──
+      function applyTheme(mode) {
+        const m = mode === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = m;
+        try { localStorage.setItem('yd_theme', m); } catch (_) {}
+        // 버튼은 '다음에 바뀔 테마'를 가리킨다(다크면 ☀️=라이트로, 라이트면 🌙=다크로).
+        document.querySelectorAll('.theme-toggle').forEach((b) => {
+          b.textContent = m === 'light' ? '🌙' : '☀️';
+          b.title = m === 'light' ? '다크 모드로' : '라이트 모드로';
+        });
+      }
+      function toggleTheme() {
+        const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+        applyTheme(next); // 즉시 적용 + 캐시
+        if (window.yd && window.yd.setTheme) window.yd.setTheme(next); // 메인(settings.json)에 영속화
+      }
+      document.querySelectorAll('.theme-toggle').forEach((b) => { b.onclick = toggleTheme; });
+      applyTheme(document.documentElement.dataset.theme); // 버튼 아이콘을 현재 테마에 맞춤
 
       // ── 리더보드(Supabase REST 직접 호출, 익명 anon 키) ──
       // publishable 키는 공개용 — 커밋·배포 안전(service_role 아님).
@@ -889,6 +943,11 @@
       // 트레이 메뉴(싱글/멀티)가 보낸 모드 구독.
       if (window.yd && window.yd.onMode) {
         window.yd.onMode((mode) => { if (mode === 'mp') enterMp(); else showScreen('solo'); });
+      }
+
+      // 테마: 메인(settings.json)이 단일 출처 — 로드/변경 시 받아 적용(localStorage 캐시도 동기화).
+      if (window.yd && window.yd.onTheme) {
+        window.yd.onTheme((mode) => applyTheme(mode));
       }
     </script>
   </body>

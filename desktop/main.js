@@ -19,6 +19,10 @@ const MP_W = 270; // 멀티 기본 폭 — 싱글과 동일한 미니 느낌 유
 const MP_W_WIDE = 410; // 백틱으로 우측 상대 점수 패널을 펼쳤을 때
 const MP_H = 380; // 로비/게임은 코드·플레이어 목록을 위해 살짝 더 높게
 
+// 창 배경색 — 표시/리사이즈 순간의 깜빡임을 줄이려 테마에 맞춘다(light 값 = popup 의 라이트 --bg).
+const BG = { dark: '#07090f', light: '#f4f4f5' };
+const themeOf = (s) => (s.theme === 'light' ? 'light' : 'dark');
+
 let tray = null;
 let win = null;
 let shownAt = 0; // 표시 직후 즉시 blur(깜빡임) 무시
@@ -40,6 +44,16 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.on('yd-side', (_e, show) => {
     sideOpen = !!show;
     if (panelMode === 'mp' && win && !win.isDestroyed()) positionPanel();
+  });
+
+  // 렌더러의 ☀️/🌙 토글 — 테마를 settings.json 에 저장하고 창 배경색·트레이 메뉴를 갱신.
+  ipcMain.on('yd-set-theme', (_e, mode) => {
+    const theme = mode === 'light' ? 'light' : 'dark';
+    const s = readSettings();
+    s.theme = theme;
+    writeSettings(s);
+    if (win && !win.isDestroyed()) win.setBackgroundColor(BG[theme]);
+    rebuildTrayMenu();
   });
 
   app.whenReady().then(() => {
@@ -68,7 +82,7 @@ function createWindow() {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    backgroundColor: '#07090f',
+    backgroundColor: BG[themeOf(readSettings())],
     icon: ICON_PATH,
     title: 'Yacht',
     webPreferences: {
@@ -82,6 +96,7 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     console.log('[yd] loaded:', win.webContents.getURL());
+    win.webContents.send('yd-theme', themeOf(readSettings())); // 메인(settings.json)이 단일 출처 — 렌더러에 푸시
     if (process.env.YD_SMOKE) {
       const js = (s) => win.webContents.executeJavaScript(s).catch(() => 'err');
       (async () => {
@@ -189,6 +204,22 @@ function rebuildTrayMenu() {
       type: 'checkbox',
       checked: autoOn,
       click: (item) => setAutostart(item.checked),
+    },
+    {
+      label: '라이트 모드',
+      type: 'checkbox',
+      checked: themeOf(readSettings()) === 'light',
+      click: (item) => {
+        const theme = item.checked ? 'light' : 'dark';
+        const s = readSettings();
+        s.theme = theme;
+        writeSettings(s);
+        if (win && !win.isDestroyed()) {
+          win.setBackgroundColor(BG[theme]);
+          win.webContents.send('yd-theme', theme); // 숨겨져 있어도 다음 표시 때 이미 반영
+        }
+        rebuildTrayMenu(); // 체크 상태 갱신
+      },
     },
     { type: 'separator' },
     {
