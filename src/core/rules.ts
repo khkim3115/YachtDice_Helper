@@ -87,7 +87,7 @@ export const CATEGORY_META: Record<CategoryId, CategoryMeta> = {
     section: 'lower',
     desc: '연속된 5개',
   },
-  yacht: { id: 'yacht', ko: '야추', en: 'Yacht', section: 'lower', desc: '같은 눈 5개' },
+  yacht: { id: 'yacht', ko: '요트', en: 'Yacht', section: 'lower', desc: '같은 눈 5개' },
 };
 
 export interface RuleConfig {
@@ -103,7 +103,7 @@ export interface RuleConfig {
   smallStraightScore: number;
   /** 라지 스트레이트 고정 점수. */
   largeStraightScore: number;
-  /** 야추 고정 점수. */
+  /** 요트 고정 점수. */
   yachtScore: number;
   /** 5개 모두 같을 때 풀하우스로도 인정할지(하우스 룰). */
   fiveOfAKindCountsAsFullHouse: boolean;

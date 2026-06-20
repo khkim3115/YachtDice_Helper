@@ -16,7 +16,7 @@ export const COMBO_IDS: readonly ComboId[] = [
 ] as const;
 
 export const COMBO_LABEL: Record<ComboId, string> = {
-  yacht: '야추',
+  yacht: '요트',
   largeStraight: '라지',
   smallStraight: '스몰',
   fullHouse: '풀하우스',
