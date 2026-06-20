@@ -66,7 +66,7 @@ describe('scoreDice — 하단', () => {
     expect(scoreDice('largeStraight', [1, 2, 3, 4, 6], R)).toBe(0);
   });
 
-  it('야추 = 50', () => {
+  it('요트 = 50', () => {
     expect(scoreDice('yacht', [4, 4, 4, 4, 4], R)).toBe(50);
     expect(scoreDice('yacht', [4, 4, 4, 4, 1], R)).toBe(0);
   });

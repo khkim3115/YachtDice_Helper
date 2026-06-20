@@ -10,7 +10,7 @@ function comboLeaf(combo: Parameters<typeof comboSatisfied>[0]): Float64Array {
 }
 
 describe('콤보 확률 (문헌값 대조)', () => {
-  it('P(야추 | 빈 시작, 리롤 2, 최적) ≈ 0.04603', () => {
+  it('P(요트 | 빈 시작, 리롤 2, 최적) ≈ 0.04603', () => {
     const layers = solveLayers(comboLeaf('yacht'), 2);
     const p = turnStartValue(layers[2]);
     expect(p).toBeCloseTo(0.04603, 4);

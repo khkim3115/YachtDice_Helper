@@ -42,7 +42,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         <div className="toggle">
           <div className="tinfo">
             <div className="t-name">콤보 확률 표시</div>
-            <div className="t-desc">야추·스트레이트 등 달성 확률</div>
+            <div className="t-desc">요트·스트레이트 등 달성 확률</div>
           </div>
           <Switch
             on={settings.showProbabilities}
