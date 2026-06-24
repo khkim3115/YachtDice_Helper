@@ -1586,3 +1586,229 @@ button:disabled {
 .dl-guide b {
   color: var(--text);
 }
+
+/* ── 패치노트(체인지로그) 모달 ───────────────────────── */
+/* 헤더 진입 버튼의 NEW 점 배지. */
+.pn-btn {
+  position: relative;
+}
+.pn-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bad);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* 백드롭 + 카드(도움말 패턴 차용). z-index 56: 도움말(55) 위, 게임오버(60) 아래. */
+.patchnotes {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: grid;
+  place-items: center;
+  z-index: 56;
+  backdrop-filter: blur(3px);
+}
+.patchnotes-card {
+  width: min(440px, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  text-align: left;
+}
+
+.pn-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+.pn-top-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pn-top h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.pn-back,
+.pn-x {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pn-back:hover,
+.pn-x:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+/* 스크롤 영역(목록/상세) — 헤더·푸터는 고정, 본문만 스크롤. */
+.pn-list,
+.pn-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.pn-list {
+  padding: 6px;
+}
+.pn-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.pn-row:last-child {
+  border-bottom: none;
+}
+.pn-row:hover {
+  background: var(--surface-2);
+}
+.pn-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.pn-ver {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.pn-date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--faint);
+}
+.pn-row-title {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.pn-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 종류 칩 — lb-mode 와 같은 알약 형태, 종류별 색. */
+.pn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  vertical-align: middle;
+}
+.pn-chip-feature {
+  color: var(--good);
+  background: var(--good-soft);
+}
+.pn-chip-improvement {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.pn-chip-fix {
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+
+/* NEW 알약 — 더 눈에 띄게(빨강 솔리드). */
+.pn-new {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+}
+
+/* 상세 */
+.pn-detail {
+  padding: 16px 18px;
+}
+.pn-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pn-detail-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+.pn-group {
+  margin-bottom: 16px;
+}
+.pn-group:last-child {
+  margin-bottom: 0;
+}
+.pn-items {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.pn-items li {
+  margin-bottom: 4px;
+}
+
+/* 푸터 */
+.pn-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  flex: none;
+}
+.pn-cur {
+  font-size: 12px;
+  color: var(--faint);
+}
+.pn-close {
+  padding: 9px 18px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.pn-close:hover {
+  filter: brightness(1.05);
+}

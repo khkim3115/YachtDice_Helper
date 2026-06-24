@@ -3,9 +3,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
+import { LATEST_VERSION } from '../data/changelog';
 import { SettingsPanel } from './SettingsPanel';
 import { HelpPanel } from './HelpPanel';
+import { PatchNotesModal } from './PatchNotesModal';
 import { InstallButton } from './InstallButton';
+
+// 패치노트 자동 노출은 페이지 로드당 1회만 평가(화면 전환에 따른 Header 재마운트에도 중복 방지).
+let patchNotesAutoChecked = false;
 
 interface HeaderProps {
   title: ReactNode;
@@ -22,6 +27,11 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
   const setScreen = useAppStore((s) => s.setScreen);
   const theme = useGameStore((s) => s.theme);
   const toggleTheme = useGameStore((s) => s.toggleTheme);
+  const patchNotesOpen = useAppStore((s) => s.patchNotesOpen);
+  const openPatchNotes = useAppStore((s) => s.openPatchNotes);
+  const closePatchNotes = useAppStore((s) => s.closePatchNotes);
+  const seenVersion = useAppStore((s) => s.seenVersion);
+  const hasUnseen = seenVersion !== LATEST_VERSION;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -34,6 +44,22 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
       // localStorage 사용 불가(사파리 사생활 모드 등) — 자동 표시만 생략.
     }
   }, [autoHelp]);
+
+  // 새 버전이 나오면(이전에 확인한 적 있는 사용자 한정) 최초 1회 패치노트를 자동으로 띄운다.
+  // - 최초 방문(seenVersion '')에는 자동 노출하지 않음(헤더 NEW 점으로만 안내).
+  // - 솔로 첫 방문은 도움말이 우선이라 양보.
+  useEffect(() => {
+    if (patchNotesAutoChecked) return;
+    patchNotesAutoChecked = true;
+    if (autoHelp) {
+      try {
+        if (!localStorage.getItem('yd_seen_guide')) return;
+      } catch {
+        return;
+      }
+    }
+    if (seenVersion !== '' && seenVersion !== LATEST_VERSION) openPatchNotes();
+  }, [autoHelp, seenVersion, openPatchNotes]);
 
   const handleHelpClose = () => {
     setHelpOpen(false);
@@ -69,6 +95,15 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
           <button className="help-btn" onClick={() => setHelpOpen(true)} aria-label="도움말">
             ❓
           </button>
+          <button
+            className="help-btn pn-btn"
+            onClick={openPatchNotes}
+            aria-label={hasUnseen ? '패치노트 (새 소식)' : '패치노트'}
+            title="패치노트"
+          >
+            📋
+            {hasUnseen && <span className="pn-dot" aria-hidden="true" />}
+          </button>
           <InstallButton />
           <button className="gear" onClick={() => setSettingsOpen(true)} aria-label="설정">
             ⚙️
@@ -77,6 +112,7 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
       </div>
 
       {helpOpen && <HelpPanel onClose={handleHelpClose} />}
+      {patchNotesOpen && <PatchNotesModal onClose={closePatchNotes} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </>
   );
