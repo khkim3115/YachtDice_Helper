@@ -2,7 +2,7 @@
 // 기존 컴포넌트(DiceTray·Scorecard·HelperPanel)는 useGameStore 대신 useBoard 만 본다.
 
 import type { CategoryId, RuleConfig } from '../core/rules';
-import { DEFAULT_RULES, ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
+import { ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
 import { createScorecard, isGameOver } from '../core/gameState';
 import { isFiveOfAKind } from '../core/scoring';
@@ -86,23 +86,32 @@ export function useBoard(): BoardView {
     const finished = mpRoom.status !== 'playing';
     const dice = mpRoom.dice.length === 5 ? mpRoom.dice : PLACEHOLDER_DICE;
     const held = mpRoom.held.length === 5 ? mpRoom.held : PLACEHOLDER_HELD;
+    const mpRules = RULE_PRESETS[mpRoom.rulePreset].config;
+    const activeCard = active?.scorecard ?? createScorecard();
+    // 요트의 달인(내 차례 한정): 활성 카드의 요트가 50 + 최종 주사위가 5개 같은 눈.
+    const mpYachtMasterActive =
+      mpRules.multiYachtBonus &&
+      isMyTurn &&
+      mpRoom.rollsUsed > 0 &&
+      activeCard.scores.yacht === mpRules.yachtScore &&
+      isFiveOfAKind(dice);
 
     return {
-      card: active?.scorecard ?? createScorecard(),
+      card: activeCard,
       dice,
       held,
       rollsUsed: mpRoom.rollsUsed,
-      rules: DEFAULT_RULES,
+      rules: mpRules,
       canRoll: isMyTurn && mpRoom.rollsUsed < ROLLS_PER_TURN,
       canReroll: isMyTurn && mpRoom.rollsUsed > 0 && mpRoom.rollsUsed < ROLLS_PER_TURN,
       gameOver: finished,
       readOnly: !isMyTurn,
-      helperEnabled: mpRoom.helperAllowed && isMyTurn,
+      // 추가 룰 방은 서버가 helper_allowed=false 를 강제하지만, 방어적으로 프리셋도 함께 확인.
+      helperEnabled: mpRoom.helperAllowed && isMyTurn && RULE_PRESETS[mpRoom.rulePreset].helperSupported,
       showProbabilities: settings.showProbabilities,
       highlightSuggestion: settings.highlightSuggestion,
       tableStatus,
-      // 멀티 추가 룰은 PR2(서버 권위)에서 지원. 현재 멀티는 기본 룰 전용.
-      yachtMasterActive: false,
+      yachtMasterActive: mpYachtMasterActive,
       roll: () => {
         void mpRoll();
       },

@@ -1,21 +1,24 @@
-import { CATEGORY_IDS, DEFAULT_RULES } from '../core/rules';
+import { CATEGORY_IDS } from '../core/rules';
+import type { RuleConfig } from '../core/rules';
 import { grandTotal, isCategoryFilled } from '../core/gameState';
 import type { MpPlayer } from '../store/multiplayerStore';
 
 export function ScorecardMini({
   player,
+  rules,
   current,
   me,
   selected,
   onClick,
 }: {
   player: MpPlayer;
+  rules: RuleConfig;
   current: boolean;
   me: boolean;
   selected?: boolean;
   onClick?: () => void;
 }) {
-  const total = grandTotal(player.scorecard, DEFAULT_RULES);
+  const total = grandTotal(player.scorecard, rules);
   const filled = CATEGORY_IDS.filter((id) => isCategoryFilled(player.scorecard, id)).length;
   const pct = (filled / CATEGORY_IDS.length) * 100;
 

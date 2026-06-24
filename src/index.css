@@ -744,6 +744,11 @@ button:disabled {
   color: var(--muted);
   text-align: center;
 }
+.mp-note {
+  margin: -2px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* ── 게임 오버 ──────────────────────────────────────── */
 .gameover {

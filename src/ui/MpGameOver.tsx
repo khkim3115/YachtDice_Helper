@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_RULES } from '../core/rules';
+import { RULE_PRESETS } from '../core/rules';
 import { grandTotal } from '../core/gameState';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
@@ -16,13 +16,15 @@ export function MpGameOver() {
   const [submitted, setSubmitted] = useState(false);
   if (!room) return null;
 
+  const rules = RULE_PRESETS[room.rulePreset].config;
+  const isAdditional = room.rulePreset !== 'default';
   const ranked = players
-    .map((p) => ({ p, total: grandTotal(p.scorecard, DEFAULT_RULES) }))
+    .map((p) => ({ p, total: grandTotal(p.scorecard, rules) }))
     .sort((a, b) => b.total - a.total);
 
-  // 헬퍼 비허용 방에서만 내 점수를 리더보드에 등록할 수 있다.
+  // 헬퍼 비허용 + 기본 룰 방에서만 내 점수를 리더보드에 등록(추가 룰 리더보드는 PR3에서 분리).
   const me = ranked.find((r) => r.p.userId === myUserId);
-  const canRegister = !room.helperAllowed && !!me;
+  const canRegister = !room.helperAllowed && !isAdditional && !!me;
 
   async function onHome() {
     await leave();
@@ -56,14 +58,18 @@ export function MpGameOver() {
           ))}
         </div>
 
-        {canRegister &&
+        {isAdditional ? (
+          <div className="lb-note">추가 룰 점수는 추후 별도 리더보드에 등록됩니다.</div>
+        ) : (
+          canRegister &&
           (submitted ? (
             <div className="lb-registered">✓ 리더보드 등록 완료</div>
           ) : (
             <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
-              🏆 리더보드 등록 (내 점수 {me.total})
+              🏆 리더보드 등록 (내 점수 {me!.total})
             </button>
-          ))}
+          ))
+        )}
 
         <button className="again-btn" onClick={() => void onHome()}>
           홈으로
