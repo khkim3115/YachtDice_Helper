@@ -127,6 +127,15 @@
       .bonus { color: var(--mut); }
       .new { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 11px; }
       .new:hover { color: var(--txt); }
+      /* 추가 룰(무채색 유지): 요트의 달인 타깃·보너스 칸·규칙 칩·힌트 */
+      .cat.master { border-color: var(--hold); background: var(--panel3); }
+      .cat.master .pt { color: var(--emph); font-weight: 700; }
+      .mbadge { display: inline-block; margin-left: 4px; padding: 0 4px; border-radius: 6px; background: var(--panel3); color: var(--emph); font-size: 7.5px; font-weight: 700; vertical-align: middle; }
+      .rule-chip { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 10.5px; font-weight: 600; }
+      .rule-chip:hover { color: var(--txt); }
+      .solo-hint { font-size: 10px; color: var(--emph); text-align: center; padding: 2px 0; }
+      .solo-hint.hidden { display: none; }
+      .mp-rule-line { font-size: 10px; color: var(--mut); text-align: center; }
 
       .over { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; }
       .over.hidden { display: none; }
@@ -224,8 +233,10 @@
       <div class="dice" id="dice"></div>
       <button class="roll" id="roll" tabindex="-1">굴리기</button>
       <div class="cats" id="cats"></div>
+      <div class="solo-hint hidden" id="solo-hint"></div>
       <div class="foot">
         <span class="total" id="total">0<small> 점</small></span>
+        <button class="rule-chip" id="rule-toggle" title="규칙 전환 (새 게임)" tabindex="-1">기본 룰</button>
         <span id="turn">1 / 12</span>
         <button class="new" id="new" title="새로" tabindex="-1">↺ 새로</button>
       </div>
@@ -246,6 +257,7 @@
         </div>
         <div id="mp-entry" class="mp-form">
           <input class="lb-input" id="mp-name" maxlength="24" placeholder="닉네임" />
+          <button class="lb-btn rule-chip" id="mp-rule-toggle" title="방 규칙 전환" tabindex="-1">기본 룰</button>
           <button class="lb-btn" id="mp-create" tabindex="-1">방 만들기</button>
           <div class="mp-or">— 또는 —</div>
           <input class="lb-input" id="mp-code" maxlength="6" placeholder="방 코드" />
@@ -254,6 +266,7 @@
         </div>
         <div id="mp-room" class="mp-form hidden">
           <div class="mp-code-row">방 코드 <b id="mp-code-show"></b><button class="mp-code-copy" id="mp-code-copy" tabindex="-1">복사</button></div>
+          <div class="mp-rule-line" id="mp-rule-line"></div>
           <div class="mp-players" id="mp-players"></div>
           <button class="lb-btn" id="mp-start" tabindex="-1">게임 시작</button>
           <button class="new" id="mp-room-leave" tabindex="-1">방 나가기</button>
@@ -377,9 +390,27 @@
         return best;
       }
 
+      // ── 추가 룰(웹 src/core/rules.ts·gameState.ts 와 동일 로직) ──
+      // 요트의 달인: 요트(50) 기록 후 또 5개 같은 눈 → 빈 칸 1개를 보너스 칸으로 소비(+100, 반복).
+      //   보너스 칸은 총점엔 더하되 상단 소계·하단4종 판정에선 제외.
+      // 요트도 포커처럼: 하단 4종(포카드·풀하우스·스몰·라지)을 모두 실제 조합(>0)으로 → 총점 +50.
+      const LOWER_FOUR_LOCAL = ['fourkind', 'fullhouse', 'small', 'large'];
+      const LOWER_FOUR_SRV = ['fourKind', 'fullHouse', 'smallStraight', 'largeStraight'];
+      const RULE_KO = { default: '기본 룰', additional: '추가 룰' };
+      function loadPreset() {
+        try { return localStorage.getItem('yd_rule_preset') === 'additional' ? 'additional' : 'default'; }
+        catch { return 'default'; }
+      }
+      let soloPreset = loadPreset();
+      function setSoloPreset(p) {
+        soloPreset = p === 'additional' ? 'additional' : 'default';
+        try { localStorage.setItem('yd_rule_preset', soloPreset); } catch {}
+        reset(); // 규칙 변경 시 새 게임.
+      }
+
       let state;
       function reset() {
-        state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, turn: 0 };
+        state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, master: [], turn: 0 };
         document.getElementById('over').classList.add('hidden');
         render();
       }
@@ -398,9 +429,19 @@
         render();
       }
 
+      // 요트의 달인 발동 중인지(요트 50 기록 + 최종 주사위 5개 같은 눈).
+      function masterActive() {
+        return soloPreset === 'additional' && state.rolled && state.filled.yacht === 50 && maxCount(state.dice) === 5;
+      }
       function pick(cat) {
-        if (!state.rolled || state.filled[cat.id] != null) return;
-        state.filled[cat.id] = cat.fn(state.dice);
+        if (!state.rolled || state.filled[cat.id] != null || state.master.includes(cat.id)) return;
+        if (masterActive()) {
+          // 정상 채점 대신 고른 빈 칸에 보너스 100 기록(보너스 칸).
+          state.filled[cat.id] = 100;
+          state.master.push(cat.id);
+        } else {
+          state.filled[cat.id] = cat.fn(state.dice);
+        }
         state.turn++;
         if (state.turn >= 12) return gameOver();
         state.dice = [1, 1, 1, 1, 1];
@@ -410,15 +451,27 @@
         render();
       }
 
-      function upperSub() { return UPPER.reduce((a, id) => a + (state.filled[id] || 0), 0); }
+      // 보너스 칸은 상단 소계에서 제외(웹과 동일).
+      function upperSub() { return UPPER.reduce((a, id) => a + (state.master.includes(id) ? 0 : (state.filled[id] || 0)), 0); }
       function bonus() { return upperSub() >= 63 ? 35 : 0; }
-      function total() { return Object.values(state.filled).reduce((a, b) => a + b, 0) + bonus(); }
+      // 요트도 포커처럼: 하단 4종을 모두 실제 조합(>0, 보너스 칸 제외)으로 채우면 +50.
+      function lowerFourDone() {
+        if (soloPreset !== 'additional') return false;
+        return LOWER_FOUR_LOCAL.every((id) => !state.master.includes(id) && (state.filled[id] || 0) > 0);
+      }
+      function lowerFourBonus() { return lowerFourDone() ? 50 : 0; }
+      // 총점 = 모든 칸 합(보너스 칸 100 포함) + 상단 보너스 + 요트도 포커처럼.
+      function total() {
+        return Object.values(state.filled).reduce((a, b) => a + b, 0) + bonus() + lowerFourBonus();
+      }
 
       let finalScore = 0;
+      let finalPreset = 'default'; // 종료 시점의 규칙(리더보드 등록·조회용).
       let lbSubmitted = false; // 이번 게임 점수를 이미(또는 진행 중) 등록했는지 — 중복 등록 방지.
       function gameOver() {
         render();
         finalScore = total();
+        finalPreset = soloPreset;
         document.getElementById('final').textContent = finalScore;
         document.getElementById('over').classList.remove('hidden');
         // 리더보드 등록 UI 초기화(데스크톱은 헬퍼가 없어 항상 등록 가능).
@@ -449,18 +502,41 @@
         rollBtn.innerHTML = state.rolls > 0 ? `굴리기 (${state.rolls}) <span class="k">Space</span>` : '기록';
         rollBtn.disabled = state.rolls <= 0;
 
+        const mp = masterActive();
         catsEl.innerHTML = '';
         CATS.forEach((cat, idx) => {
-          const filled = state.filled[cat.id] != null;
+          const isMaster = state.master.includes(cat.id);
+          const filled = state.filled[cat.id] != null || isMaster;
           const able = !filled && state.rolled;
           const b = document.createElement('button');
           b.tabIndex = -1;
-          b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '');
-          const pt = filled ? state.filled[cat.id] : state.rolled ? cat.fn(state.dice) : '·';
-          b.innerHTML = `<span class="nm"><span class="k">${CAT_KEYS[idx]}</span>${cat.nm}</span><span class="pt">${pt}</span>`;
+          b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '') + (mp && able ? ' master' : '');
+          let pt;
+          if (filled) pt = state.filled[cat.id];
+          else if (mp) pt = '+100';
+          else pt = state.rolled ? cat.fn(state.dice) : '·';
+          const badge = isMaster ? '<span class="mbadge">달인</span>' : '';
+          b.innerHTML = `<span class="nm"><span class="k">${CAT_KEYS[idx]}</span>${cat.nm}${badge}</span><span class="pt">${pt}</span>`;
           if (able) b.onclick = () => pick(cat);
           catsEl.appendChild(b);
         });
+
+        // 규칙 칩 + 추가 룰 상태 힌트.
+        const chip = document.getElementById('rule-toggle');
+        if (chip) chip.textContent = RULE_KO[soloPreset];
+        const hint = document.getElementById('solo-hint');
+        if (hint) {
+          if (mp) {
+            hint.textContent = '🎯 요트의 달인! 빈 칸을 골라 +100';
+            hint.classList.remove('hidden');
+          } else if (soloPreset === 'additional') {
+            const done = LOWER_FOUR_LOCAL.filter((id) => !state.master.includes(id) && (state.filled[id] || 0) > 0).length;
+            hint.textContent = `요트도 포커처럼 ${done}/4` + (lowerFourDone() ? ' ✓ +50' : '');
+            hint.classList.remove('hidden');
+          } else {
+            hint.classList.add('hidden');
+          }
+        }
 
         const bn = bonus();
         document.getElementById('total').innerHTML =
@@ -471,6 +547,8 @@
       document.getElementById('roll').onclick = roll;
       document.getElementById('new').onclick = reset;
       document.getElementById('again').onclick = reset;
+      document.getElementById('rule-toggle').onclick = () =>
+        setSoloPreset(soloPreset === 'default' ? 'additional' : 'default');
       // 닫지 않고 숨기기만(상태 유지). preload 미주입 시 close 로 폴백.
       const hidePopup = () => (window.yd ? window.yd.hide() : window.close());
       document.getElementById('close').onclick = hidePopup;
@@ -570,7 +648,7 @@
           const res = await fetch(SB_URL + '/rest/v1/rpc/submit_score', {
             method: 'POST',
             headers: SB_HEADERS,
-            body: JSON.stringify({ p_nickname: nm, p_score: finalScore, p_mode: 'desktop' }),
+            body: JSON.stringify({ p_nickname: nm, p_score: finalScore, p_mode: 'desktop', p_rule_preset: finalPreset }),
           });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           try { localStorage.setItem('yd_lb_name', nm); } catch {}
@@ -587,8 +665,10 @@
         lbOver.classList.remove('hidden');
         list.innerHTML = '<div class="lb-load">불러오는 중…</div>';
         try {
+          // 현재 선택된 규칙(soloPreset) 보드를 보여준다.
           const res = await fetch(
-            SB_URL + '/rest/v1/leaderboard?select=nickname,score,mode&order=score.desc,created_at.asc&limit=10',
+            SB_URL + '/rest/v1/leaderboard?select=nickname,score,mode' +
+              `&rule_preset_id=eq.${soloPreset}&order=score.desc,created_at.asc&limit=10`,
             { headers: SB_HEADERS },
           );
           if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -668,6 +748,7 @@
         ['not your turn', '당신의 차례가 아닙니다.'],
         ['category already filled', '이미 기록된 칸입니다.'],
         ['display name required', '닉네임을 입력하세요.'],
+        ['invalid rule preset', '알 수 없는 규칙입니다.'],
       ];
       function mpHumanError(e) {
         const msg = (e && (e.message || e.error_description)) || String(e);
@@ -695,6 +776,7 @@
       function mapRoom(r) {
         return {
           id: r.id, code: r.code, status: r.status, helperAllowed: !!r.helper_allowed,
+          rulePreset: r.rule_preset_id === 'additional' ? 'additional' : 'default',
           maxPlayers: r.max_players, hostId: r.host_id, currentSeat: r.current_seat, round: r.round,
           dice: r.dice || [], held: r.held || [], rollsUsed: r.rolls_used,
           winnerSeat: r.winner_seat, isTie: !!r.is_tie,
@@ -706,11 +788,34 @@
           isHost: !!p.is_host, connected: !!p.connected, scorecard: p.scorecard || { scores: {} },
         };
       }
-      function scorecardTotal(sc) {
+      // 카드 총점. 추가 룰이면 보너스 가산(서버 scorecard_total 과 동일):
+      //  · 요트의 달인: masterCells 1개당 +100(상단/하단 소계엔 미포함).
+      //  · 요트도 포커처럼: 하단 4종 실제 조합(>0) 완성 시 +50.
+      function scorecardTotal(sc, preset) {
+        const p = preset || (mpRoom && mpRoom.rulePreset) || 'default';
         const s = (sc && sc.scores) || {};
         const u = UPPER_SRV.reduce((a, c) => a + (s[c] || 0), 0);
         const l = LOWER_SRV.reduce((a, c) => a + (s[c] || 0), 0);
-        return u + (u >= 63 ? 35 : 0) + l;
+        let t = u + (u >= 63 ? 35 : 0) + l;
+        if (p === 'additional') {
+          const master = (sc && sc.masterCells) || [];
+          const lf = LOWER_FOUR_SRV.every((c) => (s[c] || 0) > 0);
+          t += master.length * 100 + (lf ? 50 : 0);
+        }
+        return t;
+      }
+      // 내 보너스 칸(서버 id 배열).
+      function myMaster() {
+        const me = mpPlayers.find((p) => p.seat === mySeat);
+        return (me && me.scorecard && me.scorecard.masterCells) || [];
+      }
+      // mp 보드에서 요트의 달인 발동 중인지(내 차례 + 요트 50 + 5개 같은 눈).
+      function mpMasterActive() {
+        if (!mpRoom || mpRoom.rulePreset !== 'additional') return false;
+        const myTurn = mySeat !== null && mySeat === mpRoom.currentSeat;
+        const dice = mpRoom.dice && mpRoom.dice.length === 5 ? mpRoom.dice : null;
+        if (!myTurn || !dice || (mpRoom.rollsUsed || 0) === 0) return false;
+        return (mySc().yacht || 0) === 50 && maxCount(dice) === 5;
       }
 
       // ── 상태 ──
@@ -824,6 +929,8 @@
           return;
         }
         document.getElementById('mp-code-show').textContent = mpRoom.code;
+        const ruleLine = document.getElementById('mp-rule-line');
+        if (ruleLine) ruleLine.textContent = RULE_KO[mpRoom.rulePreset] + (mpRoom.rulePreset === 'additional' ? ' · 헬퍼 없음' : '');
         document.getElementById('mp-players').innerHTML = mpPlayers
           .map((p) => {
             const host = p.isHost ? ' <span class="mp-tag">방장</span>' : '';
@@ -849,9 +956,12 @@
         const rollsUsed = room.rollsUsed || 0;
 
         const active = mpPlayers.find((p) => p.seat === room.currentSeat);
-        document.getElementById('mp-turn-label').textContent = myTurn
-          ? '내 차례'
-          : (active ? active.displayName : '상대') + ' 차례';
+        const mpm = mpMasterActive();
+        document.getElementById('mp-turn-label').textContent = mpm
+          ? '🎯 요트의 달인! 빈 칸 +100'
+          : myTurn
+            ? '내 차례'
+            : (active ? active.displayName : '상대') + ' 차례';
 
         const dEl = document.getElementById('mp-dice');
         dEl.innerHTML = '';
@@ -872,20 +982,26 @@
         const cEl = document.getElementById('mp-cats');
         cEl.innerHTML = '';
         const scores = mySc();
+        const masterSet = myMaster();
         CATS.forEach((cat, idx) => {
           const srv = TO_SERVER[cat.id];
-          const filled = scores[srv] != null;
+          const isMaster = masterSet.includes(srv);
+          const filled = scores[srv] != null || isMaster;
           const able = myTurn && dice && rollsUsed > 0 && !filled;
           const b = document.createElement('button');
           b.tabIndex = -1;
-          b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '');
-          const pt = filled ? scores[srv] : dice && rollsUsed > 0 ? cat.fn(dice) : '·';
-          b.innerHTML = `<span class="nm"><span class="k">${CAT_KEYS[idx]}</span>${cat.nm}</span><span class="pt">${pt}</span>`;
+          b.className = 'cat' + (filled ? ' filled' : '') + (able ? ' able' : '') + (mpm && able ? ' master' : '');
+          let pt;
+          if (filled) pt = isMaster ? 100 : scores[srv];
+          else if (mpm) pt = '+100';
+          else pt = dice && rollsUsed > 0 ? cat.fn(dice) : '·';
+          const badge = isMaster ? '<span class="mbadge">달인</span>' : '';
+          b.innerHTML = `<span class="nm"><span class="k">${CAT_KEYS[idx]}</span>${cat.nm}${badge}</span><span class="pt">${pt}</span>`;
           if (able) b.onclick = () => mpPick(cat);
           cEl.appendChild(b);
         });
 
-        document.getElementById('mp-total').innerHTML = `${scorecardTotal({ scores })}<small> 점</small>`;
+        document.getElementById('mp-total').innerHTML = `${scorecardTotal({ scores, masterCells: masterSet })}<small> 점</small>`;
         document.getElementById('mp-round').textContent = `${Math.min((room.round || 0) + 1, 12)} / 12`;
         if (mpSideOpen) renderSide();
       }
@@ -923,10 +1039,13 @@
         const p = mpPlayers.find((x) => x.seat === seat);
         if (!p) return '';
         const sc = (p.scorecard && p.scorecard.scores) || {};
+        const master = (p.scorecard && p.scorecard.masterCells) || [];
         const cell = (cat) => {
-          const v = sc[TO_SERVER[cat.id]];
-          const has = v != null;
-          return `<div class="mp-dcell"><span class="dnm">${cat.nm}</span>` +
+          const srv = TO_SERVER[cat.id];
+          const isM = master.includes(srv);
+          const v = isM ? 100 : sc[srv];
+          const has = isM || v != null;
+          return `<div class="mp-dcell"><span class="dnm">${cat.nm}${isM ? ' <span class="mbadge">달인</span>' : ''}</span>` +
             `<span class="dpt${has ? '' : ' e'}">${has ? v : '·'}</span></div>`;
         };
         let grid = '';
@@ -954,7 +1073,7 @@
       function renderMpOver() {
         const room = mpRoom;
         if (!room) return;
-        document.getElementById('mp-final').textContent = scorecardTotal({ scores: mySc() });
+        document.getElementById('mp-final').textContent = scorecardTotal({ scores: mySc(), masterCells: myMaster() });
         let result;
         if (room.isTie) result = '무승부';
         else {
@@ -973,10 +1092,11 @@
         const msg = document.getElementById('mp-lb-msg');
         btn.disabled = true; msg.textContent = '등록 중…';
         try {
-          const myTotal = scorecardTotal({ scores: mySc() });
+          const myTotal = scorecardTotal({ scores: mySc(), masterCells: myMaster() });
+          const preset = (mpRoom && mpRoom.rulePreset) || 'default';
           const res = await fetch(SB_URL + '/rest/v1/rpc/submit_score', {
             method: 'POST', headers: SB_HEADERS,
-            body: JSON.stringify({ p_nickname: nm, p_score: myTotal, p_mode: 'multi' }),
+            body: JSON.stringify({ p_nickname: nm, p_score: myTotal, p_mode: 'multi', p_rule_preset: preset }),
           });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           try { localStorage.setItem('yd_lb_name', nm); } catch (_) {}
@@ -1082,13 +1202,16 @@
         subscribeRoom(roomId);
         await refetchRoom();
       }
+      let mpCreatePreset = 'default'; // 방 만들기에서 고른 규칙(추가 룰은 헬퍼 없음 — 데스크톱은 어차피 헬퍼 미존재).
       async function mpCreate() {
         const name = document.getElementById('mp-name').value.trim();
         if (!name) { document.getElementById('mp-name').focus(); return; }
         setLobbyMsg('만드는 중…');
         try {
           await ensureAnon();
-          const data = await rpc('create_room', { p_display_name: name, p_helper_allowed: false, p_max_players: 4 });
+          const data = await rpc('create_room', {
+            p_display_name: name, p_helper_allowed: false, p_max_players: 4, p_rule_preset: mpCreatePreset,
+          });
           try { localStorage.setItem('yd_mp_name', name); localStorage.setItem('yd_mp_code', data.code); } catch (_) {}
           await enterRoom(data.room_id);
         } catch (e) { setLobbyMsg(mpHumanError(e)); }
@@ -1162,6 +1285,10 @@
 
       // ── 버튼/키보드 배선 ──
       document.getElementById('mp-create').onclick = mpCreate;
+      document.getElementById('mp-rule-toggle').onclick = (e) => {
+        mpCreatePreset = mpCreatePreset === 'default' ? 'additional' : 'default';
+        e.currentTarget.textContent = RULE_KO[mpCreatePreset];
+      };
       document.getElementById('mp-join').onclick = mpJoin;
       document.getElementById('mp-start').onclick = mpStart;
       document.getElementById('mp-roll').onclick = mpRoll;
