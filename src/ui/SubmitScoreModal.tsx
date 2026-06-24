@@ -1,16 +1,20 @@
 // 리더보드 점수 등록 모달. 솔로/멀티 게임오버에서 띄운다(게임오버 위에 떠야 하므로 z-index 높음).
 import { useState } from 'react';
+import type { RulePresetId } from '../core/rules';
 import { submitScore, type LbMode } from '../lib/leaderboard';
 
 export function SubmitScoreModal({
   score,
   mode,
+  rulePreset = 'default',
   defaultName,
   onClose,
   onSubmitted,
 }: {
   score: number;
   mode: LbMode;
+  /** 규칙 프리셋(기본/추가) — 규칙별 보드에 등록. */
+  rulePreset?: RulePresetId;
   defaultName?: string;
   onClose: () => void;
   /** 등록 성공 시 1회 호출(부모가 재등록 방지 상태를 기록). */
@@ -28,7 +32,7 @@ export function SubmitScoreModal({
     setBusy(true);
     setError(null);
     try {
-      await submitScore(name, score, mode);
+      await submitScore(name, score, mode, rulePreset);
       try {
         localStorage.setItem('yd_mp_name', name.trim());
       } catch {

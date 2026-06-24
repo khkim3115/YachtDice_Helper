@@ -21,6 +21,7 @@ const LOWER_IDS = CATEGORY_IDS.filter((id) => CATEGORY_META[id].section === 'low
 export function GameOver() {
   const card = useGameStore((s) => s.card);
   const rules = useGameStore((s) => s.rules);
+  const rulePreset = useGameStore((s) => s.rulePreset);
   const newGame = useGameStore((s) => s.newGame);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const helperUsedThisGame = useGameStore((s) => s.helperUsedThisGame);
@@ -110,19 +111,15 @@ export function GameOver() {
           </div>
         )}
 
-        {isAdditional ? (
-          <div className="lb-note">추가 룰 점수는 추후 별도 리더보드에 등록됩니다.</div>
-        ) : (
-          !helperUsedThisGame &&
+        {!helperUsedThisGame &&
           !undoUsedThisGame &&
           (scoreSubmittedThisGame ? (
             <div className="lb-registered">✓ 리더보드 등록 완료</div>
           ) : (
             <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
-              🏆 리더보드 등록
+              🏆 리더보드 등록{isAdditional ? ' · 추가 룰' : ''}
             </button>
-          ))
-        )}
+          ))}
 
         <div className="go-actions">
           <button className="ghost-btn" onClick={() => setResultOpen(false)}>
@@ -138,6 +135,7 @@ export function GameOver() {
         <SubmitScoreModal
           score={total}
           mode="solo"
+          rulePreset={rulePreset}
           defaultName={savedName()}
           onClose={() => setSubmitOpen(false)}
           onSubmitted={markScoreSubmitted}
