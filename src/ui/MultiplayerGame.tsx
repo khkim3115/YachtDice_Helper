@@ -11,6 +11,7 @@ import { HelperPanel } from './HelperPanel';
 import { ScorecardMini } from './ScorecardMini';
 import { TurnBanner } from './TurnBanner';
 import { MpGameOver } from './MpGameOver';
+import { ChatPanel } from './ChatPanel';
 
 export function MultiplayerGame() {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -117,6 +118,8 @@ export function MultiplayerGame() {
         </div>
       )}
       {finished && <MpGameOver />}
+
+      <ChatPanel />
     </div>
   );
 }

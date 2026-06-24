@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { Header } from './Header';
+import { ChatPanel } from './ChatPanel';
 
 export function Lobby() {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -83,6 +84,8 @@ export function Lobby() {
           <div className="lobby-wait">방장이 시작하기를 기다리는 중…</div>
         )}
       </div>
+
+      <ChatPanel />
     </div>
   );
 }
