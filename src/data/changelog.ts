@@ -31,6 +31,18 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.1',
+    date: '2026-06-24',
+    title: '트레이 앱 — 자동 업데이트 · 창 투명도 조절',
+    changes: [
+      {
+        type: 'feature',
+        text: '트레이 앱이 새 버전을 자동으로 받아둬요. 트레이 메뉴에서 “설치”만 누르면 최신으로 바뀌어요.',
+      },
+      { type: 'feature', text: '트레이 앱 팝업 창의 투명도를 조절할 수 있어요. (헤더의 🔅 버튼)' },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-06-24',
     title: '멀티플레이 — 상대 점수표 상세 · 방 채팅',
