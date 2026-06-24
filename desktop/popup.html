@@ -135,7 +135,7 @@
 
       /* ── 멀티플레이 ── */
       .hidden { display: none !important; }
-      #mp { height: 100vh; }
+      #mp { height: 100vh; position: relative; }
       .mp-screen { height: 100vh; }
       #mp-lobby { display: flex; flex-direction: column; height: 100vh; padding: 7px 8px 8px; gap: 6px; }
       .mp-form { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
@@ -169,6 +169,23 @@
       .mp-dsum { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; padding-top: 3px; border-top: 1px dashed var(--line); font-size: 9.5px; color: var(--mut); }
       .mp-dsum span:last-child { color: var(--emph); font-weight: 700; }
       #mp-over { display: grid; place-items: center; height: 100vh; }
+      /* 채팅(전체 화면 오버레이; broadcast, 웹과 동일 채널/이벤트/payload) */
+      .mp-chat-toggle { position: relative; }
+      .mp-chat-badge { position: absolute; top: -3px; right: -3px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: 7px; background: var(--emph); color: var(--bg); font-size: 8px; font-weight: 700; display: grid; place-items: center; line-height: 1; }
+      .mp-chat { position: absolute; inset: 0; z-index: 20; background: var(--bg); display: flex; flex-direction: column; padding: 7px 8px 8px; gap: 6px; }
+      .mp-chat-msgs { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 1px; }
+      .mp-chat-empty { margin: auto; color: var(--mut); font-size: 11px; text-align: center; padding: 0 12px; }
+      .mp-chat-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 88%; }
+      .mp-chat-msg.me { align-self: flex-end; align-items: flex-end; }
+      .mp-chat-meta { display: flex; gap: 5px; align-items: baseline; margin-bottom: 1px; }
+      .mp-chat-name { font-size: 9px; font-weight: 700; color: var(--mut); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .mp-chat-msg.me .mp-chat-name { color: var(--emph); }
+      .mp-chat-time { font-size: 8.5px; color: var(--mut); font-variant-numeric: tabular-nums; }
+      .mp-chat-bubble { padding: 5px 8px; border-radius: 8px; background: var(--panel2); color: var(--txt); font-size: 11px; line-height: 1.35; word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
+      .mp-chat-msg.me .mp-chat-bubble { background: var(--panel3); color: var(--emph); }
+      .mp-chat-input { display: flex; gap: 5px; }
+      .mp-chat-input .lb-input { flex: 1 1 auto; text-align: left; }
+      .mp-chat-input .lb-btn { flex: 0 0 auto; padding: 5px 10px; }
     </style>
     <script src="./vendor/supabase.js"></script>
   </head>
@@ -199,6 +216,7 @@
         <div class="top">
           <span class="logo">멀티플레이</span>
           <div class="top-btns">
+            <button class="x mp-chat-toggle hidden" id="mp-chat-open-l" title="채팅" tabindex="-1">💬<span class="mp-chat-badge hidden"></span></button>
             <button class="x theme-toggle" id="theme-mpl" title="라이트 모드로" tabindex="-1">☀️</button>
             <button class="x" id="mp-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
           </div>
@@ -226,6 +244,7 @@
           <div class="top">
             <span class="logo" id="mp-turn-label">멀티</span>
             <div class="top-btns">
+              <button class="x mp-chat-toggle" id="mp-chat-open-g" title="채팅" tabindex="-1">💬<span class="mp-chat-badge hidden"></span></button>
               <button class="x theme-toggle" id="theme-mpg" title="라이트 모드로" tabindex="-1">☀️</button>
               <button class="x" id="mp-game-quit" title="방 나가기" tabindex="-1">나가기</button>
               <button class="x" id="mp-game-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
@@ -255,6 +274,21 @@
             <button class="lb-btn" id="mp-lb-submit" tabindex="-1">🏆 리더보드 등록</button>
             <div class="lb-msg" id="mp-lb-msg"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- 채팅(전체화면 오버레이; 로비·게임 공용) -->
+      <div id="mp-chat" class="mp-chat hidden">
+        <div class="top">
+          <span class="logo">채팅</span>
+          <div class="top-btns">
+            <button class="x" id="mp-chat-close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+          </div>
+        </div>
+        <div class="mp-chat-msgs" id="mp-chat-msgs"></div>
+        <div class="mp-chat-input">
+          <input class="lb-input" id="mp-chat-text" maxlength="200" placeholder="메시지…" />
+          <button class="lb-btn" id="mp-chat-send" tabindex="-1">전송</button>
         </div>
       </div>
     </div>
@@ -604,6 +638,8 @@
       let mpRoom = null, mpPlayers = [], mySeat = null, mpChannel = null, mpSideOpen = false;
       // 상대 점수 패널에서 상세를 보고 있는 좌석(로컬 UI 전용). null = 내 좌석으로 폴백.
       let mpSelectedSeat = null;
+      // 채팅(broadcast) — 최근 50개만 유지. mpChatSeen = 마지막으로 읽은 개수(안읽음 뱃지용).
+      let mpMessages = [], mpChatOpen = false, mpChatSeen = 0;
 
       function recomputeMySeat() {
         const me = mpPlayers.find((p) => p.userId === mpUserId);
@@ -641,6 +677,7 @@
         ['mp-lobby', 'mp-game', 'mp-over'].forEach((id) =>
           document.getElementById(id).classList.toggle('hidden', id !== name));
         if (name !== 'mp-game' && mpSideOpen) setSide(false); // 게임 밖에선 패널 접기
+        if (solo && mpChatOpen) closeChat(); // 솔로로 나가면 채팅 닫기
       }
       function mpScreenForStatus(s) {
         return s === 'playing' ? 'mp-game' : s === 'finished' ? 'mp-over' : 'mp-lobby';
@@ -649,8 +686,12 @@
       // ── 실시간 구독 + 리페치 ──
       function subscribeRoom(roomId) {
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
+        // 새 방 구독이면 이전 방 채팅은 비운다.
+        mpMessages = []; mpChatSeen = 0; renderChat(); updateChatBadges();
         mpChannel = mpc
-          .channel('room:' + roomId)
+          // self:true → 내가 보낸 메시지도 echo 되어 동일 경로로 표시(웹과 형식 동일).
+          .channel('room:' + roomId, { config: { broadcast: { self: true } } })
+          .on('broadcast', { event: 'chat' }, (msg) => onChatMessage(msg && msg.payload))
           .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'id=eq.' + roomId }, () => refetchRoom())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: 'room_id=eq.' + roomId }, () => refetchRoom())
           .subscribe();
@@ -683,6 +724,7 @@
       function handleRoomGone() {
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
         mpRoom = null; mpPlayers = []; mySeat = null; mpSelectedSeat = null;
+        mpMessages = []; mpChatSeen = 0; closeChat();
         try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
         showScreen('mp-lobby'); renderLobby();
         setLobbyMsg('방이 종료되었습니다.');
@@ -697,6 +739,7 @@
         const inRoom = !!mpRoom;
         document.getElementById('mp-entry').classList.toggle('hidden', inRoom);
         document.getElementById('mp-room').classList.toggle('hidden', !inRoom);
+        document.getElementById('mp-chat-open-l').classList.toggle('hidden', !inRoom); // 채팅은 방에 들어와야
         if (!inRoom) {
           try { document.getElementById('mp-name').value = localStorage.getItem('yd_mp_name') || ''; } catch (_) {}
           return;
@@ -871,6 +914,89 @@
         else if (s === 'mp-over') renderMpOver();
       }
 
+      // ── 채팅(broadcast) ── 웹(multiplayerStore/ChatPanel)과 동일 채널/이벤트/payload.
+      function hhmm(ts) {
+        const d = new Date(ts || Date.now());
+        const p = (n) => (n < 10 ? '0' + n : '' + n);
+        return p(d.getHours()) + ':' + p(d.getMinutes());
+      }
+      function onChatMessage(m) {
+        if (!m || typeof m.text !== 'string') return;
+        mpMessages.push({ userId: m.userId, displayName: m.displayName, text: m.text, ts: m.ts });
+        if (mpMessages.length > 50) mpMessages = mpMessages.slice(-50);
+        if (mpChatOpen) { renderChat(); mpChatSeen = mpMessages.length; }
+        updateChatBadges();
+      }
+      function renderChat() {
+        const box = document.getElementById('mp-chat-msgs');
+        if (!box) return;
+        box.innerHTML = '';
+        if (!mpMessages.length) {
+          const e = document.createElement('div');
+          e.className = 'mp-chat-empty';
+          e.textContent = '아직 메시지가 없어요. 먼저 인사를 건네보세요!';
+          box.appendChild(e);
+          return;
+        }
+        for (const m of mpMessages) {
+          const mine = m.userId === mpUserId;
+          const row = document.createElement('div');
+          row.className = 'mp-chat-msg' + (mine ? ' me' : '');
+          const meta = document.createElement('div');
+          meta.className = 'mp-chat-meta';
+          const nm = document.createElement('span');
+          nm.className = 'mp-chat-name';
+          nm.textContent = mine ? '나' : (m.displayName || '익명'); // textContent → XSS 안전
+          const tm = document.createElement('span');
+          tm.className = 'mp-chat-time';
+          tm.textContent = hhmm(m.ts);
+          meta.appendChild(nm); meta.appendChild(tm);
+          const bub = document.createElement('div');
+          bub.className = 'mp-chat-bubble';
+          bub.textContent = m.text; // textContent → XSS 안전
+          row.appendChild(meta); row.appendChild(bub);
+          box.appendChild(row);
+        }
+        box.scrollTop = box.scrollHeight;
+      }
+      function updateChatBadges() {
+        const unread = mpChatOpen ? 0 : Math.max(0, mpMessages.length - mpChatSeen);
+        document.querySelectorAll('.mp-chat-badge').forEach((b) => {
+          if (unread > 0) { b.textContent = unread > 99 ? '99+' : String(unread); b.classList.remove('hidden'); }
+          else b.classList.add('hidden');
+        });
+      }
+      function openChat() {
+        mpChatOpen = true;
+        document.getElementById('mp-chat').classList.remove('hidden');
+        renderChat();
+        mpChatSeen = mpMessages.length;
+        updateChatBadges();
+        const i = document.getElementById('mp-chat-text');
+        if (i) i.focus();
+      }
+      function closeChat() {
+        mpChatOpen = false;
+        document.getElementById('mp-chat').classList.add('hidden');
+        updateChatBadges();
+      }
+      function toggleChat() { mpChatOpen ? closeChat() : openChat(); }
+      function mpSendChat() {
+        const input = document.getElementById('mp-chat-text');
+        if (!input) return;
+        const raw = (input.value || '').trim();
+        if (!raw) return;
+        const text = raw.slice(0, 200);
+        if (!mpChannel || !mpUserId) { input.value = ''; return; }
+        let name = '익명';
+        const me = mpPlayers.find((p) => p.userId === mpUserId);
+        if (me && me.displayName) name = me.displayName;
+        else { try { name = localStorage.getItem('yd_mp_name') || '익명'; } catch (_) {} }
+        mpChannel.send({ type: 'broadcast', event: 'chat', payload: { userId: mpUserId, displayName: name, text: text, ts: Date.now() } });
+        input.value = '';
+        input.focus();
+      }
+
       // ── 액션(RPC) ──
       async function enterRoom(roomId) {
         mpRoom = { id: roomId, status: 'lobby', code: '', dice: [], held: [], rollsUsed: 0 };
@@ -931,6 +1057,7 @@
         if (id) { try { await rpc('leave_room', { p_room: id }); } catch (_) {} }
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
         mpRoom = null; mpPlayers = []; mySeat = null; mpSelectedSeat = null;
+        mpMessages = []; mpChatSeen = 0; closeChat();
         try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
         showScreen('mp-lobby'); renderLobby(); setLobbyMsg('');
       }
@@ -975,10 +1102,23 @@
       document.getElementById('mp-game-quit').onclick = mpLeave; // 게임에서 방 나가기
       document.getElementById('mp-again').onclick = mpLeave; // 종료 → 로비로
       document.getElementById('mp-lb-submit').onclick = mpSubmitScore;
+      document.getElementById('mp-chat-open-l').onclick = toggleChat; // 로비 채팅
+      document.getElementById('mp-chat-open-g').onclick = toggleChat; // 게임 채팅
+      document.getElementById('mp-chat-close').onclick = closeChat;
+      document.getElementById('mp-chat-send').onclick = mpSendChat;
 
       document.addEventListener('keydown', (e) => {
         const screen = currentScreenName();
         if (screen === 'solo') return; // 솔로는 기존 핸들러가 처리
+        // 채팅 오버레이가 떠 있으면 전용 처리(Esc=닫기, Enter=전송). 그 외 단축키는 차단.
+        if (mpChatOpen) {
+          if (e.key === 'Escape') { e.preventDefault(); closeChat(); return; }
+          if (e.key === 'Enter' && !e.isComposing &&
+              document.activeElement && document.activeElement.id === 'mp-chat-text') {
+            e.preventDefault(); mpSendChat();
+          }
+          return;
+        }
         const tag = (document.activeElement && document.activeElement.tagName) || '';
         if (tag === 'INPUT') {
           if (e.key === 'Escape') { e.preventDefault(); document.activeElement.blur(); }

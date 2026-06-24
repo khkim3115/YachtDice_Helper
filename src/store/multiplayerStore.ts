@@ -6,6 +6,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ensureAnonSession } from '../lib/supabase';
 import type { CategoryId } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
+import { appendCapped, sanitizeChatText } from '../lib/chat';
+import type { ChatMessage } from '../lib/chat';
 
 export type RoomStatus = 'lobby' | 'playing' | 'finished' | 'abandoned';
 
@@ -44,8 +46,11 @@ interface MpState {
   busy: boolean;
   error: string | null;
   channel: RealtimeChannel | null;
+  /** 방 채팅(broadcast, 최근 CHAT_KEEP개만 유지). 방을 나가면 비워진다. */
+  messages: ChatMessage[];
 
   selectPlayer: (seat: number | null) => void;
+  sendChat: (text: string) => void;
   createRoom: (name: string, helperAllowed: boolean, maxPlayers: number) => Promise<boolean>;
   joinRoom: (code: string, name: string) => Promise<boolean>;
   startGame: () => Promise<void>;
@@ -116,8 +121,23 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
   busy: false,
   error: null,
   channel: null,
+  messages: [],
 
   selectPlayer: (seat) => set({ selectedSeat: seat }),
+
+  // 채팅 전송: 정리(공백/빈/200자) → 내 표시명 결정 → 같은 채널에 broadcast.
+  // self:true 구독이라 내 메시지도 동일 경로로 되돌아와 화면에 표시된다.
+  sendChat: (text) => {
+    const clean = sanitizeChatText(text);
+    if (!clean) return;
+    const { channel, myUserId, players } = get();
+    if (!channel || !myUserId) return;
+    const me = players.find((p) => p.userId === myUserId);
+    const displayName =
+      me?.displayName || localStorage.getItem('yd_mp_name') || '익명';
+    const payload: ChatMessage = { userId: myUserId, displayName, text: clean, ts: Date.now() };
+    void channel.send({ type: 'broadcast', event: 'chat', payload });
+  },
 
   createRoom: async (name, helperAllowed, maxPlayers) => {
     set({ busy: true, error: null });
@@ -200,7 +220,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
     if (room) await supabase.rpc('leave_room', { p_room: room.id }).then(undefined, () => {});
     if (channel) void supabase.removeChannel(channel);
     localStorage.removeItem('yd_mp_code');
-    set({ room: null, players: [], channel: null, error: null, selectedSeat: null });
+    set({ room: null, players: [], channel: null, error: null, selectedSeat: null, messages: [] });
   },
 
   clearError: () => set({ error: null }),
@@ -208,8 +228,14 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
   subscribeRoom: (roomId) => {
     const prev = get().channel;
     if (prev) void supabase.removeChannel(prev);
+    // 새 방 구독이면 이전 방 채팅은 비운다.
+    set({ messages: [] });
     const ch = supabase
-      .channel(`room:${roomId}`)
+      // self:true → 내가 보낸 메시지도 echo 되어 동일 경로로 표시(데스크톱과 형식 동일).
+      .channel(`room:${roomId}`, { config: { broadcast: { self: true } } })
+      .on('broadcast', { event: 'chat' }, ({ payload }) => {
+        set((s) => ({ messages: appendCapped(s.messages, payload as ChatMessage) }));
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
