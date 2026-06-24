@@ -62,6 +62,27 @@
       .x { border: none; background: transparent; color: var(--mut); font-size: 11px; cursor: pointer; padding: 2px 4px; line-height: 1; }
       .x:hover { color: var(--txt); }
 
+      /* ── 투명도 팝오버 — 헤더 🔅 버튼으로 토글, 클릭한 버튼 아래 우측에 고정(JS가 top/right 지정). ── */
+      .opacity-pop {
+        position: fixed; z-index: 50;
+        display: flex; align-items: center; gap: 7px;
+        padding: 7px 9px; border-radius: 8px;
+        background: var(--panel2); border: 1px solid var(--line);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      }
+      .opacity-pop.hidden { display: none; }
+      .opacity-pop input[type='range'] {
+        -webkit-appearance: none; appearance: none;
+        width: 110px; height: 4px; border-radius: 3px; margin: 0;
+        background: var(--panel3); cursor: pointer; outline: none;
+      }
+      .opacity-pop input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        width: 13px; height: 13px; border-radius: 50%;
+        background: var(--emph); border: 1px solid var(--line); cursor: pointer;
+      }
+      .opacity-val { font-size: 10px; color: var(--mut); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+
       .dice { display: flex; gap: 4px; justify-content: center; }
       .die {
         position: relative;
@@ -194,6 +215,7 @@
       <div class="top">
         <span class="logo">설정</span>
         <div class="top-btns">
+          <button class="x opacity-toggle" id="op-solo" title="투명도" tabindex="-1">🔅</button>
           <button class="x theme-toggle" id="theme-solo" title="라이트 모드로" tabindex="-1">☀️</button>
           <button class="x" id="lb-open" title="리더보드" tabindex="-1">🏆</button>
           <button class="x" id="close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
@@ -217,6 +239,7 @@
           <span class="logo">멀티플레이</span>
           <div class="top-btns">
             <button class="x mp-chat-toggle hidden" id="mp-chat-open-l" title="채팅" tabindex="-1">💬<span class="mp-chat-badge hidden"></span></button>
+            <button class="x opacity-toggle" id="op-mpl" title="투명도" tabindex="-1">🔅</button>
             <button class="x theme-toggle" id="theme-mpl" title="라이트 모드로" tabindex="-1">☀️</button>
             <button class="x" id="mp-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
           </div>
@@ -245,6 +268,7 @@
             <span class="logo" id="mp-turn-label">멀티</span>
             <div class="top-btns">
               <button class="x mp-chat-toggle" id="mp-chat-open-g" title="채팅" tabindex="-1">💬<span class="mp-chat-badge hidden"></span></button>
+              <button class="x opacity-toggle" id="op-mpg" title="투명도" tabindex="-1">🔅</button>
               <button class="x theme-toggle" id="theme-mpg" title="라이트 모드로" tabindex="-1">☀️</button>
               <button class="x" id="mp-game-quit" title="방 나가기" tabindex="-1">나가기</button>
               <button class="x" id="mp-game-leave" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
@@ -312,6 +336,12 @@
         <div class="lblist" id="lb-list"></div>
         <button class="again" id="lb-close" tabindex="-1">닫기<span class="k">Esc</span></button>
       </div>
+    </div>
+
+    <!-- 투명도 슬라이더 팝오버(헤더 🔅 공용; 창 전체 투명도 조절. 최소 30%) -->
+    <div id="opacity-pop" class="opacity-pop hidden">
+      <input type="range" id="opacity-range" min="30" max="100" step="1" value="100" tabindex="-1" />
+      <span class="opacity-val" id="opacity-val">100%</span>
     </div>
 
     <script>
@@ -463,6 +493,55 @@
       }
       document.querySelectorAll('.theme-toggle').forEach((b) => { b.onclick = toggleTheme; });
       applyTheme(document.documentElement.dataset.theme); // 버튼 아이콘을 현재 테마에 맞춤
+
+      // ── 투명도(🔅) — 헤더 버튼으로 팝오버 토글, 슬라이더로 창 투명도 조절 ──
+      // 메인(settings.json)이 단일 출처. 드래그 중(input)엔 실시간 적용만, 끝(change)에만 저장.
+      const opPop = document.getElementById('opacity-pop');
+      const opRange = document.getElementById('opacity-range');
+      const opVal = document.getElementById('opacity-val');
+      function applyOpacityUI(v) {
+        const n = Math.max(30, Math.min(100, Math.round(Number(v) || 100)));
+        opRange.value = String(n);
+        opVal.textContent = n + '%';
+      }
+      function closeOpacityPop() { opPop.classList.add('hidden'); }
+      function toggleOpacityPop(btn) {
+        if (!opPop.classList.contains('hidden')) { closeOpacityPop(); return; }
+        const r = btn.getBoundingClientRect(); // 클릭한 버튼 아래·우측 정렬(헤더 3종 모두 대응)
+        opPop.style.top = Math.round(r.bottom + 4) + 'px';
+        opPop.style.left = 'auto';
+        opPop.style.right = Math.round(window.innerWidth - r.right) + 'px';
+        opPop.classList.remove('hidden');
+        // 좁은 헤더(mp-game)에서 우측 정렬 시 팝오버가 화면 왼쪽으로 잘리면 좌측(8px)으로 보정.
+        if (opPop.getBoundingClientRect().left < 8) { opPop.style.right = 'auto'; opPop.style.left = '8px'; }
+      }
+      document.querySelectorAll('.opacity-toggle').forEach((b) => {
+        b.onclick = (e) => { e.stopPropagation(); toggleOpacityPop(b); }; // stopPropagation: 바깥클릭 닫힘과 충돌 방지
+      });
+      opRange.addEventListener('input', () => {
+        applyOpacityUI(opRange.value);
+        if (window.yd && window.yd.setOpacity) window.yd.setOpacity(Number(opRange.value), false); // 실시간 적용만
+      });
+      opRange.addEventListener('change', () => {
+        if (window.yd && window.yd.setOpacity) window.yd.setOpacity(Number(opRange.value), true); // 드래그 끝 → 저장
+      });
+      // 팝오버 바깥 클릭 → 닫기(슬라이더·토글 버튼 클릭은 제외).
+      document.addEventListener('click', (e) => {
+        if (opPop.classList.contains('hidden')) return;
+        if (opPop.contains(e.target) || (e.target.closest && e.target.closest('.opacity-toggle'))) return;
+        closeOpacityPop();
+      });
+      // 팝오버가 열려 있는 동안엔 모든 키를 capture 단계에서 가로채 게임 단축키(Space·문자·숫자·백틱)가
+      // 배경에서 실행되는 것을 막는다. Esc=닫기, 슬라이더 포커스 시 방향키만 통과(값 조절).
+      const OP_SLIDER_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+      document.addEventListener('keydown', (e) => {
+        if (opPop.classList.contains('hidden')) return; // 닫혀있으면 평소대로
+        if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeOpacityPop(); return; }
+        if (document.activeElement === opRange && OP_SLIDER_KEYS.includes(e.key)) return; // 슬라이더 값 조절은 허용
+        e.preventDefault(); e.stopImmediatePropagation(); // 그 외 단축키는 무시(투명도 조절 중)
+      }, true);
+      // 창 폭/크기 변경(예: 멀티 상대패널 백틱 토글 → setBounds) 시 고정 좌표가 어긋나므로 팝오버를 닫는다.
+      window.addEventListener('resize', () => { if (!opPop.classList.contains('hidden')) closeOpacityPop(); });
 
       // ── 리더보드(Supabase REST 직접 호출, 익명 anon 키) ──
       // publishable 키는 공개용 — 커밋·배포 안전(service_role 아님).
@@ -1154,14 +1233,19 @@
         }
       });
 
-      // 트레이 메뉴(싱글/멀티)가 보낸 모드 구독.
+      // 트레이 메뉴(싱글/멀티)가 보낸 모드 구독. 창 재표시 때마다 투명도 팝오버는 닫힌 상태로 리셋.
       if (window.yd && window.yd.onMode) {
-        window.yd.onMode((mode) => { if (mode === 'mp') enterMp(); else showScreen('solo'); });
+        window.yd.onMode((mode) => { closeOpacityPop(); if (mode === 'mp') enterMp(); else showScreen('solo'); });
       }
 
       // 테마: 메인(settings.json)이 단일 출처 — 로드/변경 시 받아 적용(localStorage 캐시도 동기화).
       if (window.yd && window.yd.onTheme) {
         window.yd.onTheme((mode) => applyTheme(mode));
+      }
+
+      // 투명도: 메인(settings.json)이 단일 출처 — 초기/저장값을 받아 슬라이더·라벨 동기화.
+      if (window.yd && window.yd.onOpacity) {
+        window.yd.onOpacity((v) => applyOpacityUI(v));
       }
     </script>
   </body>
