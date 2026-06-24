@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { RULE_PRESETS } from '../core/rules';
 import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 import { selectMySeat, useMultiplayerStore } from '../store/multiplayerStore';
@@ -104,6 +105,7 @@ export function MultiplayerGame() {
           <ScorecardMini
             key={p.id}
             player={p}
+            rules={RULE_PRESETS[room.rulePreset].config}
             current={room.status === 'playing' && room.currentSeat === p.seat}
             me={p.userId === myUserId}
             selected={p.seat === displaySeat}

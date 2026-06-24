@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { RULE_PRESETS } from '../core/rules';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { Header } from './Header';
@@ -53,8 +54,8 @@ export function Lobby() {
           </button>
         </div>
         <p className="lobby-hint">
-          친구에게 이 코드를 알려주면 같은 방에 참여할 수 있어요. 헬퍼 {room.helperAllowed ? '허용' : '비허용'} ·
-          최대 {room.maxPlayers}명
+          친구에게 이 코드를 알려주면 같은 방에 참여할 수 있어요. {RULE_PRESETS[room.rulePreset].ko} · 헬퍼{' '}
+          {room.helperAllowed ? '허용' : '비허용'} · 최대 {room.maxPlayers}명
         </p>
 
         <div className="lobby-players">
