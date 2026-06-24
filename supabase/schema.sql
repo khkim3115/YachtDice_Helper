@@ -435,19 +435,21 @@ begin
     or (status = 'playing'   and updated_at < now() - interval '6 hours');
 end $$;
 
--- ── 리더보드(Top10 글로벌 랭킹) ──────────────────────────────────────────
--- 솔로/멀티/데스크톱 공용 단일 보드. 읽기는 공개(select), 쓰기는 submit_score RPC 만.
--- 룸과 달리 솔로·데스크톱 점수는 서버 검증이 불가 → 클라이언트 신뢰 기반(캐주얼).
--- score CHECK 로 비현실적 값만 차단(기본 룰 실제 최대 ≈ 323).
+-- ── 리더보드(규칙별 Top10 랭킹) ──────────────────────────────────────────
+-- 규칙 프리셋(기본/추가)별로 분리된 보드. mode(solo/multi/desktop)는 배지로만 표시.
+-- 읽기는 공개(select), 쓰기는 submit_score RPC 만. 솔로·데스크톱은 서버 검증 불가(캐주얼).
+-- score CHECK: 추가 룰은 요트의 달인 보너스로 기본 룰보다 크게 높아질 수 있어 상한 2000.
 create table public.leaderboard (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid,                                    -- 익명(미로그인) 호출 시 null 허용
-  nickname    text not null check (char_length(nickname) between 1 and 24),
-  score       int  not null check (score between 0 and 1000),
-  mode        text not null check (mode in ('solo','multi','desktop')),
-  created_at  timestamptz not null default now()
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid,                                -- 익명(미로그인) 호출 시 null 허용
+  nickname        text not null check (char_length(nickname) between 1 and 24),
+  score           int  not null check (score between 0 and 2000),
+  mode            text not null check (mode in ('solo','multi','desktop')),
+  rule_preset_id  text not null default 'default' check (rule_preset_id in ('default','additional')),
+  created_at      timestamptz not null default now()
 );
-create index leaderboard_rank_idx on public.leaderboard (score desc, created_at asc);
+-- 규칙별 상위 N 조회/정리를 위해 rule_preset_id 로 파티션.
+create index leaderboard_rank_idx on public.leaderboard (rule_preset_id, score desc, created_at asc);
 
 alter table public.leaderboard enable row level security;
 create policy leaderboard_select_public on public.leaderboard
@@ -455,18 +457,26 @@ create policy leaderboard_select_public on public.leaderboard
 revoke insert, update, delete on public.leaderboard from anon, authenticated;
 grant  select on public.leaderboard to anon, authenticated;
 
--- 점수 제출 + Top10 초과분 정리(= 10개만 저장). anon/authenticated 모두 호출 가능.
-create or replace function public.submit_score(p_nickname text, p_score int, p_mode text)
+-- 점수 제출 + 규칙별 Top10 초과분 정리. anon/authenticated 모두 호출 가능.
+create or replace function public.submit_score(
+  p_nickname text, p_score int, p_mode text, p_rule_preset text default 'default')
 returns void language plpgsql security definer set search_path = public as $$
+declare preset text;
 begin
   if char_length(coalesce(p_nickname,'')) = 0 then raise exception 'nickname required'; end if;
-  if p_score < 0 or p_score > 1000 then raise exception 'score out of range'; end if;
+  if p_score < 0 or p_score > 2000 then raise exception 'score out of range'; end if;
   if p_mode not in ('solo','multi','desktop') then raise exception 'invalid mode'; end if;
-  insert into public.leaderboard(user_id, nickname, score, mode)
-    values (auth.uid(), left(p_nickname,24), p_score, p_mode);
-  -- 점수 desc, 동점은 먼저 등록한 순(created_at asc)으로 Top10 만 남기고 삭제.
-  delete from public.leaderboard where id not in (
-    select id from public.leaderboard order by score desc, created_at asc limit 10
+  preset := coalesce(p_rule_preset, 'default');
+  if preset not in ('default','additional') then raise exception 'invalid rule preset'; end if;
+  insert into public.leaderboard(user_id, nickname, score, mode, rule_preset_id)
+    values (auth.uid(), left(p_nickname,24), p_score, p_mode, preset);
+  -- 규칙(rule_preset_id)별로 점수 desc·동점 먼저 등록 순(created_at asc) Top10 만 남기고 삭제.
+  delete from public.leaderboard where id in (
+    select id from (
+      select id, row_number() over (
+        partition by rule_preset_id order by score desc, created_at asc
+      ) as rn from public.leaderboard
+    ) t where t.rn > 10
   );
 end $$;
 
@@ -491,7 +501,7 @@ to authenticated;
 grant execute on function public.is_room_member(uuid) to authenticated;
 
 -- 리더보드 제출: 익명(미로그인) 사용자도 호출 가능(웹/데스크톱 공용).
-grant execute on function public.submit_score(text, int, text) to anon, authenticated;
+grant execute on function public.submit_score(text, int, text, text) to anon, authenticated;
 
 -- ── Realtime (Postgres Changes) ──────────────────────────────────────────
 alter publication supabase_realtime add table public.rooms;
