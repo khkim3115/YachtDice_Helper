@@ -2,9 +2,10 @@
 // 기존 컴포넌트(DiceTray·Scorecard·HelperPanel)는 useGameStore 대신 useBoard 만 본다.
 
 import type { CategoryId, RuleConfig } from '../core/rules';
-import { DEFAULT_RULES, ROLLS_PER_TURN } from '../core/rules';
+import { DEFAULT_RULES, ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
 import { createScorecard, isGameOver } from '../core/gameState';
+import { isFiveOfAKind } from '../core/scoring';
 import { useAppStore } from './appStore';
 import type { TableStatus } from './gameStore';
 import { useGameStore } from './gameStore';
@@ -29,6 +30,11 @@ export interface BoardView {
   showProbabilities: boolean;
   highlightSuggestion: boolean;
   tableStatus: TableStatus;
+  /**
+   * 요트의 달인 발동 중(추가 룰): 요트(50) 기록 후 또 5개 같은 눈이 나온 상태.
+   * 이때 빈 칸 아무 곳이나 클릭하면 그 칸에 보너스 점수를 적는다.
+   */
+  yachtMasterActive: boolean;
   roll: () => void;
   toggleHold: (i: number) => void;
   assign: (cat: CategoryId) => void;
@@ -51,6 +57,7 @@ export function useBoard(): BoardView {
   const soloHeld = useGameStore((s) => s.held);
   const soloRollsUsed = useGameStore((s) => s.rollsUsed);
   const soloRules = useGameStore((s) => s.rules);
+  const soloRulePreset = useGameStore((s) => s.rulePreset);
   const soloRoll = useGameStore((s) => s.roll);
   const soloToggleHold = useGameStore((s) => s.toggleHold);
   const soloAssign = useGameStore((s) => s.assign);
@@ -94,6 +101,8 @@ export function useBoard(): BoardView {
       showProbabilities: settings.showProbabilities,
       highlightSuggestion: settings.highlightSuggestion,
       tableStatus,
+      // 멀티 추가 룰은 PR2(서버 권위)에서 지원. 현재 멀티는 기본 룰 전용.
+      yachtMasterActive: false,
       roll: () => {
         void mpRoll();
       },
@@ -111,6 +120,13 @@ export function useBoard(): BoardView {
   }
 
   // 솔로(기본)
+  const helperSupported = RULE_PRESETS[soloRulePreset].helperSupported;
+  const yachtMasterActive =
+    soloRules.multiYachtBonus &&
+    soloRollsUsed > 0 &&
+    soloCard.scores.yacht === soloRules.yachtScore &&
+    isFiveOfAKind(soloDice);
+
   return {
     card: soloCard,
     dice: soloDice,
@@ -121,10 +137,12 @@ export function useBoard(): BoardView {
     canReroll: soloCanReroll,
     gameOver: soloGameOver || isGameOver(soloCard),
     readOnly: false,
-    helperEnabled: settings.helperEnabled,
+    // 추가 룰(헬퍼 미지원)에서는 헬퍼 UI 전체를 끈다.
+    helperEnabled: settings.helperEnabled && helperSupported,
     showProbabilities: settings.showProbabilities,
     highlightSuggestion: settings.highlightSuggestion,
     tableStatus,
+    yachtMasterActive,
     roll: soloRoll,
     toggleHold: soloToggleHold,
     assign: soloAssign,

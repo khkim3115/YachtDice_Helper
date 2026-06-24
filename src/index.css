@@ -654,6 +654,96 @@ button:disabled {
   color: white;
   font-weight: 700;
 }
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 규칙 프리셋 선택 ────────────────────────────────── */
+.setting-group {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-group .t-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.preset-seg {
+  display: flex;
+  gap: 8px;
+}
+.preset-opt {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+}
+.preset-opt.active {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text);
+}
+.preset-desc {
+  margin-top: 8px;
+}
+.preset-warn {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--gold);
+}
+
+/* ── 추가 룰: 요트의 달인 / 요트도 포커처럼 ──────────── */
+.sc-badge.master {
+  color: white;
+  background: var(--accent);
+}
+.sc-row.master-target {
+  cursor: pointer;
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.sc-row.master-target:hover {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.sc-points.master {
+  color: var(--gold);
+}
+.master-hint {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--gold);
+  background: var(--gold-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.sc-extra {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.go-extra {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.go-master {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.lb-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
 
 /* ── 게임 오버 ──────────────────────────────────────── */
 .gameover {

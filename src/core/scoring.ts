@@ -89,6 +89,16 @@ export function scoreDice(category: CategoryId, dice: readonly number[], rules: 
 }
 
 /**
+ * 5개가 모두 같은 눈인지(요트 패턴). 요트의 달인 발동 판정에 쓰인다.
+ * 채점(yachtScore)과 무관하게 순수 패턴만 본다.
+ */
+export function isFiveOfAKind(dice: readonly number[]): boolean {
+  const counts = diceToCounts(dice);
+  for (let v = 1; v <= 6; v++) if (counts[v] === 5) return true;
+  return false;
+}
+
+/**
  * 모든 손패(252) × 모든 카테고리(12)의 점수 테이블.
  * 사전계산과 런타임 솔버가 동일 채점을 쓰도록 공유한다.
  * 반환: Float64Array, 인덱스 = handIndex * 12 + categoryIndex.
