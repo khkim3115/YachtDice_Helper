@@ -31,6 +31,18 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-06-24',
+    title: '멀티플레이 — 상대 점수표 상세 · 방 채팅',
+    changes: [
+      { type: 'feature', text: '멀티플레이에서 상대 플레이어를 눌러 점수표 상세를 확인할 수 있어요.' },
+      {
+        type: 'feature',
+        text: '멀티플레이 방에서 실시간 채팅으로 대화할 수 있어요. (웹·트레이 앱이 같은 방이면 서로 채팅돼요)',
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-06-24',
     title: '패치노트 화면 추가',
