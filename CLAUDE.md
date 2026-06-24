@@ -79,6 +79,14 @@ The static front end (GitHub Pages) holds **no game authority**. All multiplayer
 
 Push to `main` → `.github/workflows/deploy.yml` runs `npm run build` (which regenerates V.bin via `prebuild`) and publishes to GitHub Pages. `base: './'` in `vite.config.ts` keeps it working under a sub-path, so Vercel (build `npm run build`, output `dist`) works too without changes.
 
+## Patch notes (changelog)
+
+In-app patch notes live in `src/data/changelog.ts` — the single source of truth for user-facing release notes (a pure module, no React). `CHANGELOG[0]` is the newest entry and drives `LATEST_VERSION`. The header 📋 button opens `src/ui/PatchNotesModal.tsx` (master–detail: version list → per-version detail grouped by change type). `appStore.ts` tracks `seenVersion` in `localStorage['yd_seen_version']`; an entry is "NEW" when it's newer than `seenVersion` (`unseenCount`), and the modal auto-opens once for **returning** users after `LATEST_VERSION` rises — first-time visitors only get the latest flagged, no auto-popup. To ship notes, prepend one entry to `CHANGELOG`; that bump is what fires the NEW badge/auto-popup. The changelog version is deliberately **decoupled** from `package.json`.
+
+## Contributing & releases
+
+See `CONTRIBUTING.md`. Trunk-based: one issue → one `<type>/<issue>-<slug>` branch off `main` → PR (`Closes #n`) → **squash merge** (every `main` push auto-deploys). Deploy and *announce* are separate concerns: announce by prepending a `CHANGELOG` entry (bump the web-facing version, tag `web-vX.Y.Z`) once a batch of merges is worth a patch note. The web version lives in `changelog.ts`; the desktop tray versions independently in `desktop/package.json` (`tray-vX.Y.Z`).
+
 ## Sanity checks (in tests)
 
 `probability.test.ts` cross-checks combo odds against known literature values; `solver.test.ts` verifies simulated optimal play converges to the table's predicted mean. For this default ruleset the **optimal expected average ≈ 191.8** (printed by `build:table` from the empty-card state). A large drift there signals a broken rule/index change.
