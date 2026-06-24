@@ -151,11 +151,23 @@
       .mp-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
       .mp-side { flex: 0 0 130px; border-left: 1px solid var(--line); padding-left: 6px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
       .mp-side .ph { font-size: 9px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
-      .mp-prow { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 4px 6px; font-size: 10.5px; }
+      .mp-prow { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 4px 6px; font-size: 10.5px; cursor: pointer; }
       .mp-prow.turn { border-color: var(--hold); background: var(--panel2); }
+      .mp-prow.selected { background: var(--panel3); border-color: var(--emph); }
+      .mp-prow:hover { border-color: var(--emph); }
       .mp-prow .pn { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .mp-prow .ps { color: var(--emph); font-weight: 700; font-variant-numeric: tabular-nums; }
       .mp-prow .pf { font-size: 8px; color: var(--mut); font-weight: 600; }
+      /* 선택 플레이어 상세(2열 그리드) */
+      .mp-side-detail { margin-top: 5px; border-top: 1px solid var(--line); padding-top: 5px; }
+      .mp-dhead { margin-bottom: 3px; }
+      .mp-dgrid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6px; }
+      .mp-dcell { display: flex; justify-content: space-between; align-items: baseline; gap: 3px; font-size: 9.5px; padding: 1.5px 0; }
+      .mp-dcell .dnm { color: var(--mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .mp-dcell .dpt { color: var(--txt); font-weight: 700; font-variant-numeric: tabular-nums; }
+      .mp-dcell .dpt.e { color: var(--mut); font-weight: 400; }
+      .mp-dsum { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; padding-top: 3px; border-top: 1px dashed var(--line); font-size: 9.5px; color: var(--mut); }
+      .mp-dsum span:last-child { color: var(--emph); font-weight: 700; }
       #mp-over { display: grid; place-items: center; height: 100vh; }
     </style>
     <script src="./vendor/supabase.js"></script>
@@ -590,10 +602,21 @@
 
       // ── 상태 ──
       let mpRoom = null, mpPlayers = [], mySeat = null, mpChannel = null, mpSideOpen = false;
+      // 상대 점수 패널에서 상세를 보고 있는 좌석(로컬 UI 전용). null = 내 좌석으로 폴백.
+      let mpSelectedSeat = null;
 
       function recomputeMySeat() {
         const me = mpPlayers.find((p) => p.userId === mpUserId);
         mySeat = me ? me.seat : null;
+      }
+      // 현재 패널이 보여줄 좌석: 선택이 유효하면 그 좌석, 아니면 내 좌석.
+      function sideSelectedSeat() {
+        if (mpSelectedSeat != null && mpPlayers.some((p) => p.seat === mpSelectedSeat)) return mpSelectedSeat;
+        return mySeat;
+      }
+      function setSideSeat(seat) {
+        mpSelectedSeat = seat;
+        if (mpSideOpen) renderSide();
       }
       function mySc() {
         const me = mpPlayers.find((p) => p.seat === mySeat);
@@ -659,7 +682,7 @@
       }
       function handleRoomGone() {
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
-        mpRoom = null; mpPlayers = []; mySeat = null;
+        mpRoom = null; mpPlayers = []; mySeat = null; mpSelectedSeat = null;
         try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
         showScreen('mp-lobby'); renderLobby();
         setLobbyMsg('방이 종료되었습니다.');
@@ -754,17 +777,45 @@
       }
       function toggleSide() { setSide(!mpSideOpen); }
       function renderSide() {
-        document.getElementById('mp-side').innerHTML =
-          '<div class="ph">플레이어</div>' +
-          mpPlayers
-            .map((p) => {
-              const filled = Object.keys((p.scorecard && p.scorecard.scores) || {}).length;
-              const turn = mpRoom && p.seat === mpRoom.currentSeat;
-              return `<div class="mp-prow${turn ? ' turn' : ''}">` +
-                `<span class="pn">${turn ? '▸ ' : ''}${escapeHtml(p.displayName)}</span>` +
-                `<span class="ps">${scorecardTotal(p.scorecard)}<span class="pf"> ${filled}/12</span></span></div>`;
-            })
-            .join('');
+        const sel = sideSelectedSeat();
+        const rows = mpPlayers
+          .map((p) => {
+            const filled = Object.keys((p.scorecard && p.scorecard.scores) || {}).length;
+            const turn = mpRoom && p.seat === mpRoom.currentSeat;
+            const selected = p.seat === sel;
+            const cls = 'mp-prow' + (turn ? ' turn' : '') + (selected ? ' selected' : '');
+            return `<div class="${cls}" data-seat="${p.seat}">` +
+              `<span class="pn">${selected ? '▸ ' : ''}${escapeHtml(p.displayName)}</span>` +
+              `<span class="ps">${scorecardTotal(p.scorecard)}<span class="pf"> ${filled}/12</span></span></div>`;
+          })
+          .join('');
+        const side = document.getElementById('mp-side');
+        side.innerHTML = '<div class="ph">플레이어</div>' + rows + renderSideDetail(sel);
+        // 행 클릭 → 그 플레이어 상세 보기.
+        side.querySelectorAll('.mp-prow').forEach((el) => {
+          el.onclick = () => setSideSeat(Number(el.dataset.seat));
+        });
+      }
+      // 선택 플레이어 상세 점수(2열 그리드: 상단 | 하단) + 요약.
+      function renderSideDetail(seat) {
+        const p = mpPlayers.find((x) => x.seat === seat);
+        if (!p) return '';
+        const sc = (p.scorecard && p.scorecard.scores) || {};
+        const cell = (cat) => {
+          const v = sc[TO_SERVER[cat.id]];
+          const has = v != null;
+          return `<div class="mp-dcell"><span class="dnm">${cat.nm}</span>` +
+            `<span class="dpt${has ? '' : ' e'}">${has ? v : '·'}</span></div>`;
+        };
+        let grid = '';
+        for (let i = 0; i < 6; i++) grid += cell(CATS[i]) + cell(CATS[i + 6]);
+        const up = UPPER_SRV.reduce((a, c) => a + (sc[c] || 0), 0);
+        const total = scorecardTotal(p.scorecard);
+        return `<div class="mp-side-detail">` +
+          `<div class="ph mp-dhead">${escapeHtml(p.displayName)} 상세</div>` +
+          `<div class="mp-dgrid">${grid}</div>` +
+          `<div class="mp-dsum"><span>상단 ${up}/63${up >= 63 ? ' ✓' : ''}</span>` +
+          `<span>합 ${total}</span></div></div>`;
       }
 
       // ── 렌더: 종료 ──
@@ -879,7 +930,7 @@
         const id = mpRoom && mpRoom.id;
         if (id) { try { await rpc('leave_room', { p_room: id }); } catch (_) {} }
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
-        mpRoom = null; mpPlayers = []; mySeat = null;
+        mpRoom = null; mpPlayers = []; mySeat = null; mpSelectedSeat = null;
         try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
         showScreen('mp-lobby'); renderLobby(); setLobbyMsg('');
       }
@@ -936,6 +987,17 @@
         if (e.key === 'Escape') { e.preventDefault(); hidePopup(); return; }
         if (screen === 'mp-game') {
           if (e.key === '`') { e.preventDefault(); toggleSide(); return; }
+          // 상대 점수 패널이 열려 있으면 ↑/↓ 로 선택 좌석 이동(턴 무관).
+          if (mpSideOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            const seats = mpPlayers.map((p) => p.seat).sort((a, b) => a - b);
+            if (!seats.length) return;
+            let idx = seats.indexOf(sideSelectedSeat());
+            if (idx < 0) idx = 0;
+            idx = e.key === 'ArrowUp' ? Math.max(0, idx - 1) : Math.min(seats.length - 1, idx + 1);
+            setSideSeat(seats[idx]);
+            return;
+          }
           const room = mpRoom;
           if (!room) return;
           const myTurn = mySeat !== null && mySeat === room.currentSeat;
