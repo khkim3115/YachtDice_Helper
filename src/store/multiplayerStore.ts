@@ -39,10 +39,13 @@ interface MpState {
   room: MpRoom | null;
   players: MpPlayer[];
   myUserId: string | null;
+  /** 점수표로 보고 있는 좌석(로컬 UI 전용). null = 현재 차례 따라가기. */
+  selectedSeat: number | null;
   busy: boolean;
   error: string | null;
   channel: RealtimeChannel | null;
 
+  selectPlayer: (seat: number | null) => void;
   createRoom: (name: string, helperAllowed: boolean, maxPlayers: number) => Promise<boolean>;
   joinRoom: (code: string, name: string) => Promise<boolean>;
   startGame: () => Promise<void>;
@@ -109,9 +112,12 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
   room: null,
   players: [],
   myUserId: null,
+  selectedSeat: null,
   busy: false,
   error: null,
   channel: null,
+
+  selectPlayer: (seat) => set({ selectedSeat: seat }),
 
   createRoom: async (name, helperAllowed, maxPlayers) => {
     set({ busy: true, error: null });
@@ -194,7 +200,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
     if (room) await supabase.rpc('leave_room', { p_room: room.id }).then(undefined, () => {});
     if (channel) void supabase.removeChannel(channel);
     localStorage.removeItem('yd_mp_code');
-    set({ room: null, players: [], channel: null, error: null });
+    set({ room: null, players: [], channel: null, error: null, selectedSeat: null });
   },
 
   clearError: () => set({ error: null }),

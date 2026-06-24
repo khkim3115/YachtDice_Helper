@@ -1,5 +1,6 @@
 import { CATEGORY_IDS, CATEGORY_META } from '../core/rules';
 import type { CategoryId } from '../core/rules';
+import type { Scorecard as ScorecardData } from '../core/gameState';
 import { isCategoryFilled, upperBonus, upperSubtotal } from '../core/gameState';
 import { scoreDice } from '../core/scoring';
 import type { Advice, PerCategoryAdvice } from '../engine/advisor';
@@ -8,9 +9,13 @@ import { useBoard } from '../store/useBoard';
 const UPPER_IDS = CATEGORY_IDS.filter((id) => CATEGORY_META[id].section === 'upper');
 const LOWER_IDS = CATEGORY_IDS.filter((id) => CATEGORY_META[id].section === 'lower');
 
-export function Scorecard({ advice }: { advice: Advice | null }) {
-  const { card, dice, rollsUsed, rules, helperEnabled, highlightSuggestion: highlight, readOnly, assign, gameOver } =
-    useBoard();
+// viewCard 가 있으면 다른 플레이어 카드를 읽기전용으로 표시(주사위·EV·추천 모두 숨김).
+export function Scorecard({ advice, viewCard }: { advice: Advice | null; viewCard?: ScorecardData }) {
+  const board = useBoard();
+  const { dice, rollsUsed, rules, helperEnabled, highlightSuggestion: highlight, assign, gameOver } = board;
+  const viewing = viewCard != null;
+  const card = viewCard ?? board.card;
+  const readOnly = viewing || board.readOnly;
 
   const rolled = rollsUsed > 0;
   const rerollsLeft = 3 - rollsUsed;
@@ -18,7 +23,7 @@ export function Scorecard({ advice }: { advice: Advice | null }) {
   advice?.perCategory.forEach((p) => perCat.set(p.category, p));
 
   const recommendId =
-    advice && highlight && advice.recommendScoreNow ? advice.bestCategory : null;
+    !viewing && advice && highlight && advice.recommendScoreNow ? advice.bestCategory : null;
 
   const sub = upperSubtotal(card);
   const bonus = upperBonus(card, rules);
@@ -28,9 +33,9 @@ export function Scorecard({ advice }: { advice: Advice | null }) {
     const meta = CATEGORY_META[id];
     const filled = isCategoryFilled(card, id);
     const canAssign = rolled && !gameOver && !filled && !readOnly;
-    const preview = rolled ? scoreDice(id, dice, rules) : null;
+    const preview = !viewing && rolled ? scoreDice(id, dice, rules) : null;
     const adv = perCat.get(id);
-    const showEv = !!adv && helperEnabled && rolled && rerollsLeft > 0 && !filled;
+    const showEv = !viewing && !!adv && helperEnabled && rolled && rerollsLeft > 0 && !filled;
 
     const cls = ['sc-row', filled ? 'filled' : 'open', recommendId === id ? 'recommend' : '']
       .filter(Boolean)

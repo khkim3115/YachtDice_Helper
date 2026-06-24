@@ -1293,8 +1293,29 @@ button:disabled {
 .mini.current {
   border-color: var(--gold);
 }
+.mini.clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+.mini.clickable:hover {
+  border-color: var(--accent);
+}
+.mini.clickable:active {
+  transform: translateY(1px);
+}
+.mini.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+}
 .mini.offline {
   opacity: 0.55;
+}
+.mp-view-tag {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  vertical-align: middle;
 }
 .mini-head {
   display: flex;
