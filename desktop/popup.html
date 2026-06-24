@@ -142,6 +142,8 @@
       .mp-or { text-align: center; font-size: 10px; color: var(--mut); margin: 2px 0; }
       .mp-code-row { font-size: 12px; color: var(--txt); text-align: center; margin-top: 2px; }
       .mp-code-row b { color: var(--emph); letter-spacing: 2px; font-size: 15px; }
+      .mp-code-copy { margin-left: 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel2); color: var(--txt); padding: 2px 7px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; vertical-align: middle; }
+      .mp-code-copy:hover { background: var(--panel3); }
       .mp-players { display: flex; flex-direction: column; gap: 4px; }
       .mp-tag { font-size: 8px; color: var(--mut); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; }
       .mp-hint { font-size: 9px; color: var(--mut); }
@@ -198,7 +200,7 @@
           <div class="lb-msg" id="mp-msg"></div>
         </div>
         <div id="mp-room" class="mp-form hidden">
-          <div class="mp-code-row">방 코드 <b id="mp-code-show"></b></div>
+          <div class="mp-code-row">방 코드 <b id="mp-code-show"></b><button class="mp-code-copy" id="mp-code-copy" tabindex="-1">복사</button></div>
           <div class="mp-players" id="mp-players"></div>
           <button class="lb-btn" id="mp-start" tabindex="-1">게임 시작</button>
           <button class="new" id="mp-room-leave" tabindex="-1">방 나가기</button>
@@ -908,6 +910,16 @@
       document.getElementById('mp-roll').onclick = mpRoll;
       document.getElementById('mp-leave').onclick = hidePopup; // 로비 ✕ = 숨김(좌석 유지)
       document.getElementById('mp-room-leave').onclick = mpLeave; // 방 나가기
+      document.getElementById('mp-code-copy').onclick = async () => { // 초대 코드 클립보드 복사
+        if (!mpRoom || !mpRoom.code) return;
+        try {
+          await navigator.clipboard.writeText(mpRoom.code);
+          const btn = document.getElementById('mp-code-copy');
+          const orig = btn.textContent;
+          btn.textContent = '✓ 복사됨';
+          setTimeout(() => { btn.textContent = orig; }, 1500);
+        } catch (e) { console.warn('clipboard write failed', e); }
+      };
       document.getElementById('mp-game-leave').onclick = hidePopup; // 게임 ✕ = 숨김
       document.getElementById('mp-game-quit').onclick = mpLeave; // 게임에서 방 나가기
       document.getElementById('mp-again').onclick = mpLeave; // 종료 → 로비로
