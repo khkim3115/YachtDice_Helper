@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ensureAnonSession } from '../lib/supabase';
-import type { CategoryId } from '../core/rules';
+import type { CategoryId, RulePresetId } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
 import { appendCapped, sanitizeChatText } from '../lib/chat';
 import type { ChatMessage } from '../lib/chat';
@@ -16,6 +16,8 @@ export interface MpRoom {
   code: string;
   status: RoomStatus;
   helperAllowed: boolean;
+  /** 룰 프리셋(기본/추가). 방 만들 때 결정, 게임 중 불변. */
+  rulePreset: RulePresetId;
   maxPlayers: number;
   hostId: string;
   currentSeat: number | null;
@@ -51,7 +53,12 @@ interface MpState {
 
   selectPlayer: (seat: number | null) => void;
   sendChat: (text: string) => void;
-  createRoom: (name: string, helperAllowed: boolean, maxPlayers: number) => Promise<boolean>;
+  createRoom: (
+    name: string,
+    helperAllowed: boolean,
+    maxPlayers: number,
+    rulePreset: RulePresetId,
+  ) => Promise<boolean>;
   joinRoom: (code: string, name: string) => Promise<boolean>;
   startGame: () => Promise<void>;
   rollDice: () => Promise<void>;
@@ -70,6 +77,7 @@ function mapRoom(r: any): MpRoom {
     code: r.code,
     status: r.status,
     helperAllowed: !!r.helper_allowed,
+    rulePreset: (r.rule_preset_id ?? 'default') as RulePresetId,
     maxPlayers: r.max_players,
     hostId: r.host_id,
     currentSeat: r.current_seat,
@@ -105,6 +113,7 @@ const ERROR_KO: [string, string][] = [
   ['not your turn', '당신의 차례가 아닙니다.'],
   ['display name required', '닉네임을 입력하세요.'],
   ['category already filled', '이미 기록된 칸입니다.'],
+  ['invalid rule preset', '알 수 없는 규칙입니다.'],
 ];
 
 function humanError(e: unknown): string {
@@ -139,7 +148,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
     void channel.send({ type: 'broadcast', event: 'chat', payload });
   },
 
-  createRoom: async (name, helperAllowed, maxPlayers) => {
+  createRoom: async (name, helperAllowed, maxPlayers, rulePreset) => {
     set({ busy: true, error: null });
     try {
       const uid = await ensureAnonSession();
@@ -148,6 +157,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
         p_display_name: name,
         p_helper_allowed: helperAllowed,
         p_max_players: maxPlayers,
+        p_rule_preset: rulePreset,
       });
       if (error) throw error;
       const roomId = (data as { room_id: string }).room_id;
