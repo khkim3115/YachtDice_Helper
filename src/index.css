@@ -503,6 +503,11 @@ button:disabled {
 .banner.reroll {
   border-color: var(--gold);
 }
+/* 요트의 달인 윈드폴(+100) — 일반 "지금 기록" 배너와 구분되는 골드 강조 링. */
+.banner.windfall {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+}
 .banner .icon {
   font-size: 26px;
 }

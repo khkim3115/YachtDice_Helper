@@ -31,6 +31,17 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.1',
+    date: '2026-06-25',
+    title: '추가 룰에서도 헬퍼 지원',
+    changes: [
+      {
+        type: 'feature',
+        text: '이제 “추가 룰”에서도 최적-EV 헬퍼가 동작해요. 요트의 달인(반복 요트 +100)·요트도 포커처럼(하단 4종 +50)까지 내다보고 최적의 수와 예상 최종 점수를 알려줘요. (설정 ⚙️에서 “헬퍼 사용” 켜기)',
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-06-25',
     title: '추가 룰 — 요트의 달인 · 요트도 포커처럼',
