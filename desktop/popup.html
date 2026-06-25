@@ -62,6 +62,11 @@
       .x { border: none; background: transparent; color: var(--mut); font-size: 11px; cursor: pointer; padding: 2px 4px; line-height: 1; }
       .x:hover { color: var(--txt); }
 
+      /* ── 창 드래그 이동 — 헤더(.top) 빈 영역/로고를 잡고 끌면 창이 따라온다(main.js 의 movable:true 와 한 쌍).
+         헤더 안의 클릭 요소(버튼·입력·투명도 팝오버)는 no-drag 로 되돌려야 클릭이 막히지 않는다. ── */
+      .top { -webkit-app-region: drag; }
+      .top button, .top input, .top a, .opacity-pop, .opacity-pop input { -webkit-app-region: no-drag; }
+
       /* ── 투명도 팝오버 — 헤더 🔅 버튼으로 토글, 클릭한 버튼 아래 우측에 고정(JS가 top/right 지정). ── */
       .opacity-pop {
         position: fixed; z-index: 50;
