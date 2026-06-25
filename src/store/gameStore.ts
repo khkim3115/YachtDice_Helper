@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { CategoryId, RuleConfig, RulePresetId } from '../core/rules';
 import { DEFAULT_PRESET_ID, DICE_COUNT, ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
+import { STATE_COUNT, STATE_COUNT_ADDITIONAL } from '../core/stateIndex';
 import type { Scorecard } from '../core/gameState';
 import {
   createScorecard,
@@ -47,6 +48,8 @@ interface GameStore {
   rollsUsed: number;
   settings: Settings;
   advisor: Advisor | null;
+  /** 현재 로드된 advisor 가 어느 프리셋용인지(보드 프리셋과 불일치 시 조언 미사용). */
+  advisorPreset: RulePresetId | null;
   tableStatus: TableStatus;
   /** 게임 종료 결과 팝업 표시 여부. */
   resultOpen: boolean;
@@ -130,6 +133,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   rollsUsed: 0,
   settings: { helperEnabled: false, showProbabilities: true, highlightSuggestion: true },
   advisor: null,
+  advisorPreset: null,
   tableStatus: 'idle',
   resultOpen: false,
   helperUsedThisGame: false,
@@ -152,14 +156,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   loadTable: async () => {
-    // 헬퍼 미지원 프리셋(추가 룰)에서는 V.bin 을 받지도, advisor 를 만들지도 않는다.
-    if (!RULE_PRESETS[get().rulePreset].helperSupported) return;
+    const preset = get().rulePreset;
+    if (!RULE_PRESETS[preset].helperSupported) return;
     if (get().tableStatus === 'loading' || get().tableStatus === 'ready') return;
     set({ tableStatus: 'loading' });
     try {
-      const V = await loadValueTable(`${import.meta.env.BASE_URL}V.bin`);
+      const additional = preset === 'additional';
+      const file = additional ? 'V.additional.bin' : 'V.bin';
+      const expected = additional ? STATE_COUNT_ADDITIONAL : STATE_COUNT;
+      const V = await loadValueTable(`${import.meta.env.BASE_URL}${file}`, expected);
       const advisor = createAdvisor(V, get().rules);
-      set({ advisor, tableStatus: 'ready' });
+      set({ advisor, advisorPreset: preset, tableStatus: 'ready' });
     } catch (e) {
       console.error(e);
       set({ tableStatus: 'error' });
@@ -267,7 +274,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       history: [],
       undoUsedThisGame: false,
       scoreSubmittedThisGame: false,
-      // 헬퍼 미지원 프리셋에서는 헬퍼를 강제로 끈다(설정 토글·게이팅 일치).
+      // 프리셋이 바뀌면 이전 테이블/advisor 는 무효 → 리셋해 새 프리셋용으로 다시 로드.
+      advisor: null,
+      advisorPreset: null,
+      tableStatus: 'idle',
+      // 헬퍼 미지원 프리셋이면 토글을 끈다(현재는 둘 다 지원이라 사실상 그대로 유지).
       settings: preset.helperSupported
         ? get().settings
         : { ...get().settings, helperEnabled: false },
