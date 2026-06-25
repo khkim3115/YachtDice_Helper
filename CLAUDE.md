@@ -12,9 +12,10 @@ npm run dev            # vite dev server → http://localhost:5173 (PWA/service 
 npm test               # vitest run — pure-logic tests (scoring, probability, solver sanity)
 npm run test:watch     # vitest watch
 npm run typecheck      # tsc --noEmit
-npm run build          # prebuild regenerates V.bin, then tsc --noEmit + vite build → dist/
+npm run build          # prebuild regenerates V.bin + V.additional.bin, then tsc --noEmit + vite build → dist/
 npm run preview        # serve the build; use this (not dev) to test PWA install / offline
 npm run build:table    # ~10s, backward-induction precompute → public/V.bin (Node, via tsx)
+npm run build:table:additional   # ~65–75s, additional-ruleset table → public/V.additional.bin (~4 MiB)
 npm run generate-pwa-assets   # regenerate public/ icons from public/icon.svg
 ```
 
@@ -90,3 +91,5 @@ See `CONTRIBUTING.md`. Trunk-based: one issue → one `<type>/<issue>-<slug>` br
 ## Sanity checks (in tests)
 
 `probability.test.ts` cross-checks combo odds against known literature values; `solver.test.ts` verifies simulated optimal play converges to the table's predicted mean. For this default ruleset the **optimal expected average ≈ 191.8** (printed by `build:table` from the empty-card state). A large drift there signals a broken rule/index change.
+
+The **additional** ruleset has its own table `public/V.additional.bin` (state space expanded by 2 history bits — `yachtFifty` × `lowerAlive` — so `STATE_COUNT_ADDITIONAL = 262144 × 4`, see `stateIndex.ts`) with **optimal expected average ≈ 227.2** (printed by `build:table:additional`). `additionalSolver.test.ts` checks its simulated optimal play converges to that baseline, mirroring `solver.test.ts`.

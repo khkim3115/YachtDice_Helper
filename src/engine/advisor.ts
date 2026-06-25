@@ -86,6 +86,8 @@ export function createAdvisor(V: ValueTable, rules: RuleConfig): Advisor {
     return leaf;
   });
 
+  // 카테고리별 EV는 원점수(컬럼 leaf) 기반 — 추가 룰 보너스(+50·윈드폴 +100)는 반영하지 않는다(의도된 단순화).
+  // 보너스를 모두 반영한 최적 추천은 메인 경로(bestCategory·expectedFinalScore·windfall)가 담당한다.
   function buildPerCategory(
     card: Scorecard,
     handIndex: number,
