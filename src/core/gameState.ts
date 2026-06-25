@@ -115,3 +115,17 @@ export function filledMaskOf(card: Scorecard): number {
 export function cappedUpperOf(card: Scorecard): number {
   return capUpper(upperSubtotal(card));
 }
+
+/** 요트의 달인 게이트: 요트를 실제 50으로 기록했는가(추가 룰 전용 상태 비트). */
+export function yachtFiftyOf(card: Scorecard, rules: RuleConfig): boolean {
+  return rules.yachtScore > 0 && (card.scores.yacht ?? -1) === rules.yachtScore;
+}
+
+/** 요트도 포커처럼 +50이 아직 달성 가능한가(하단4종 비실제 점유 없음). 추가 룰 전용 상태 비트. */
+export function lowerAliveOf(card: Scorecard, _rules: RuleConfig): boolean {
+  return LOWER_FOUR_CATEGORIES.every((cat) => {
+    if (isMasterCell(card, cat)) return false; // 마스터 칸 = 비실제 점유 → 죽음
+    const s = card.scores[cat];
+    return s === undefined ? true : s > 0; // 비어있으면 살아있음, 채웠으면 실제(>0)여야 함
+  });
+}
