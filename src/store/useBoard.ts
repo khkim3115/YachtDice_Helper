@@ -1,7 +1,7 @@
 // 모드 무관 보드 어댑터: 솔로(gameStore) / 멀티(multiplayerStore)를 동일한 shape 로 제공.
 // 기존 컴포넌트(DiceTray·Scorecard·HelperPanel)는 useGameStore 대신 useBoard 만 본다.
 
-import type { CategoryId, RuleConfig } from '../core/rules';
+import type { CategoryId, RuleConfig, RulePresetId } from '../core/rules';
 import { ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
 import { createScorecard, isGameOver } from '../core/gameState';
@@ -20,6 +20,8 @@ export interface BoardView {
   held: boolean[];
   rollsUsed: number;
   rules: RuleConfig;
+  /** 현재 보드의 룰 프리셋(헬퍼 테이블 일치 확인용). */
+  rulePreset: RulePresetId;
   canRoll: boolean;
   canReroll: boolean;
   /** 보드 상호작용 불가(솔로: 게임 종료 / 멀티: 게임 종료). */
@@ -102,6 +104,7 @@ export function useBoard(): BoardView {
       held,
       rollsUsed: mpRoom.rollsUsed,
       rules: mpRules,
+      rulePreset: mpRoom.rulePreset,
       canRoll: isMyTurn && mpRoom.rollsUsed < ROLLS_PER_TURN,
       canReroll: isMyTurn && mpRoom.rollsUsed > 0 && mpRoom.rollsUsed < ROLLS_PER_TURN,
       gameOver: finished,
@@ -142,6 +145,7 @@ export function useBoard(): BoardView {
     held: soloHeld,
     rollsUsed: soloRollsUsed,
     rules: soloRules,
+    rulePreset: soloRulePreset,
     canRoll: soloCanRoll,
     canReroll: soloCanReroll,
     gameOver: soloGameOver || isGameOver(soloCard),
