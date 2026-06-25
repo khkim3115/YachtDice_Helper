@@ -8,12 +8,20 @@ import {
   createScorecard,
   filledMaskOf,
   grandTotal,
+  lowerAliveOf,
+  recordMasterYachtBonus,
   recordScore,
+  yachtFiftyOf,
 } from '../core/gameState';
 import type { RuleConfig } from '../core/rules';
 import { CATEGORY_IDS, MAX_REROLLS, NUM_CATEGORIES } from '../core/rules';
 import { buildScoreTable, scoreCounts } from '../core/scoring';
-import { buildOptimalLeaf, scoreNowChoiceForHand } from './optimalLeaf';
+import {
+  buildOptimalLeaf,
+  buildOptimalLeafAdditional,
+  scoreNowChoiceForHand,
+  scoreNowChoiceForHandAdditional,
+} from './optimalLeaf';
 import type { ValueTable } from './valueTable';
 import { bestKeep, solveLayers } from './withinTurnDP';
 
@@ -42,8 +50,9 @@ export interface Policy {
 
 export function createPolicy(V: ValueTable, rules: RuleConfig): Policy {
   const scoreTable = buildScoreTable(ALL_HANDS, rules);
+  const additional = rules.multiYachtBonus || rules.lowerFourBonus;
 
-  function playOneGame(rng: RNG): { total: number; card: Scorecard } {
+  function playOneGameDefault(rng: RNG): { total: number; card: Scorecard } {
     let card = createScorecard();
     for (let turn = 0; turn < NUM_CATEGORIES; turn++) {
       let dice = [rollDie(rng), rollDie(rng), rollDie(rng), rollDie(rng), rollDie(rng)];
@@ -76,7 +85,46 @@ export function createPolicy(V: ValueTable, rules: RuleConfig): Policy {
     return { total: grandTotal(card, rules), card };
   }
 
-  return { playOneGame };
+  function playOneGameAdditional(rng: RNG): { total: number; card: Scorecard } {
+    let card = createScorecard();
+    for (let turn = 0; turn < NUM_CATEGORIES; turn++) {
+      let dice = [rollDie(rng), rollDie(rng), rollDie(rng), rollDie(rng), rollDie(rng)];
+      for (let r = MAX_REROLLS; ; r--) {
+        const handIndex = handIndexOfDice(dice);
+        const filledMask = filledMaskOf(card);
+        const cappedUpper = cappedUpperOf(card);
+        const yf = yachtFiftyOf(card, rules);
+        const la = lowerAliveOf(card, rules);
+        const leaf = buildOptimalLeafAdditional(scoreTable, V, filledMask, cappedUpper, yf, la, rules);
+        if (r > 0) {
+          const layers = solveLayers(leaf, r);
+          const bk = bestKeep(layers[r - 1], handIndex);
+          if (keepSizes[bk.keepIndex] !== 5) {
+            const remaining = ALL_KEEPS[bk.keepIndex].slice();
+            dice = dice.map((d) => {
+              if (remaining[d] > 0) {
+                remaining[d]--;
+                return d;
+              }
+              return rollDie(rng);
+            });
+            continue;
+          }
+        }
+        const choice = scoreNowChoiceForHandAdditional(
+          scoreTable, V, filledMask, cappedUpper, yf, la, rules, handIndex,
+        );
+        const cat = CATEGORY_IDS[choice.categoryIndex];
+        card = choice.isWindfall
+          ? recordMasterYachtBonus(card, cat)
+          : recordScore(card, cat, scoreCounts(cat, diceToCounts(dice), rules));
+        break;
+      }
+    }
+    return { total: grandTotal(card, rules), card };
+  }
+
+  return { playOneGame: additional ? playOneGameAdditional : playOneGameDefault };
 }
 
 export interface SimStats {

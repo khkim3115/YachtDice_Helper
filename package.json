@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build:table": "tsx src/precompute/buildValueTable.ts",
-    "prebuild": "npm run build:table",
+    "build:table:additional": "tsx src/precompute/buildValueTable.ts additional",
+    "prebuild": "npm run build:table && npm run build:table:additional",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",

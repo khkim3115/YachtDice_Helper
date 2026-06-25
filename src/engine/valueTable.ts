@@ -9,6 +9,17 @@ export function getV(table: ValueTable, filledMask: number, upperCapped: number)
   return table[filledMask * UPPER_LEVELS + upperCapped];
 }
 
+/** 추가 룰 V 조회. (mask*64 + upper)*4 + yf*2 + la. */
+export function getVAdditional(
+  table: ValueTable,
+  filledMask: number,
+  upperCapped: number,
+  yachtFifty: boolean,
+  lowerAlive: boolean,
+): number {
+  return table[(filledMask * UPPER_LEVELS + upperCapped) * 4 + (yachtFifty ? 2 : 0) + (lowerAlive ? 1 : 0)];
+}
+
 /** 바이너리 자산에서 V 로드. 길이 검증 포함. */
 export async function loadValueTable(url: string): Promise<ValueTable> {
   const res = await fetch(url);
