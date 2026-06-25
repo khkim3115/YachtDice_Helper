@@ -31,6 +31,21 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.2',
+    date: '2026-06-25',
+    title: '트레이 앱 — 창 드래그 이동 · 위치 기억',
+    changes: [
+      {
+        type: 'feature',
+        text: '트레이 앱 창을 상단 헤더를 잡고 드래그해 원하는 위치로 옮길 수 있어요. 옮긴 자리는 기억돼 다음에 열 때도 그대로예요.',
+      },
+      {
+        type: 'feature',
+        text: '트레이 메뉴에서 “위치 고정”을 켜면 창 밖을 클릭해도 사라지지 않아, 다른 작업을 하면서 띄워둘 수 있어요. (“위치 초기화”로 기본 자리로 되돌리기)',
+      },
+    ],
+  },
+  {
     version: '0.6.1',
     date: '2026-06-25',
     title: '추가 룰에서도 헬퍼 지원',
