@@ -196,9 +196,9 @@ export const RULE_PRESETS: Record<RulePresetId, RulePreset> = {
     id: 'additional',
     ko: '추가 룰',
     en: 'Extra',
-    desc: '요트의 달인(반복 요트 +100)·요트도 포커처럼(하단 4종 완성 +50). 헬퍼 미지원.',
+    desc: '요트의 달인(반복 요트 +100)·요트도 포커처럼(하단 4종 완성 +50).',
     config: ADDITIONAL_RULES,
-    helperSupported: false,
+    helperSupported: true,
   },
 };
 

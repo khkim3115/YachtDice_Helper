@@ -10,10 +10,17 @@ import {
   filledMaskOf,
   grandTotal,
   isCategoryFilled,
+  lowerAliveOf,
+  yachtFiftyOf,
 } from '../core/gameState';
 import { buildScoreTable } from '../core/scoring';
 import type { ValueTable } from './valueTable';
-import { buildOptimalLeaf, scoreNowChoiceForHand } from './optimalLeaf';
+import {
+  buildOptimalLeaf,
+  buildOptimalLeafAdditional,
+  scoreNowChoiceForHand,
+  scoreNowChoiceForHandAdditional,
+} from './optimalLeaf';
 import { bestKeep, solveLayers } from './withinTurnDP';
 import { COMBO_IDS, COMBO_LABEL, comboProbability } from './probability';
 import type { ComboId } from './probability';
@@ -50,6 +57,8 @@ export interface Advice {
   evGainFromReroll: number;
   perCategory: PerCategoryAdvice[];
   comboProbs: ComboProbInfo[];
+  /** 요트의 달인 윈드폴 추천(추가 룰). 기본 룰에선 undefined. */
+  windfall?: { active: boolean; bonus: number; category: CategoryId };
 }
 
 export interface Advisor {
@@ -77,28 +86,47 @@ export function createAdvisor(V: ValueTable, rules: RuleConfig): Advisor {
     return leaf;
   });
 
-  function advise(card: Scorecard, dice: readonly number[], rerollsLeft: number): Advice {
+  // 카테고리별 EV는 원점수(컬럼 leaf) 기반 — 추가 룰 보너스(+50·윈드폴 +100)는 반영하지 않는다(의도된 단순화).
+  // 보너스를 모두 반영한 최적 추천은 메인 경로(bestCategory·expectedFinalScore·windfall)가 담당한다.
+  function buildPerCategory(
+    card: Scorecard,
+    handIndex: number,
+    rerollsLeft: number,
+  ): PerCategoryAdvice[] {
+    return CATEGORY_IDS.map((category, c) => {
+      const filled = isCategoryFilled(card, category);
+      const sNow = scoreTable[handIndex * NUM_CATEGORIES + c];
+      let evIfReroll = sNow;
+      if (rerollsLeft > 0) {
+        const layers = solveLayers(columnLeaf[c], rerollsLeft);
+        evIfReroll = layers[rerollsLeft][handIndex];
+      }
+      return { category, filled, scoreNow: sNow, evIfReroll, delta: evIfReroll - sNow };
+    });
+  }
+
+  function buildComboProbs(handIndex: number, rerollsLeft: number): ComboProbInfo[] {
+    return COMBO_IDS.map((combo) => ({
+      combo,
+      label: COMBO_LABEL[combo],
+      prob: comboProbability(combo, handIndex, rerollsLeft),
+    }));
+  }
+
+  const additional = rules.multiYachtBonus || rules.lowerFourBonus;
+
+  function adviseDefault(card: Scorecard, dice: readonly number[], rerollsLeft: number): Advice {
+    // ── 기존 advise 본문을 그대로 둔다(변경 없음) ──
     const handIndex = handIndexOfDice(dice);
     const filledMask = filledMaskOf(card);
     const cappedUpper = cappedUpperOf(card);
     const alreadyTotal = grandTotal(card, rules);
-
-    // 게임 전체 최적: leaf = 지금 기록 가치.
     const leaf = buildOptimalLeaf(scoreTable, V, filledMask, cappedUpper, rules);
-    const scoreNow = scoreNowChoiceForHand(
-      scoreTable,
-      V,
-      filledMask,
-      cappedUpper,
-      rules,
-      handIndex,
-    );
-
+    const scoreNow = scoreNowChoiceForHand(scoreTable, V, filledMask, cappedUpper, rules, handIndex);
     let recommendScoreNow: boolean;
     let holdMask: boolean[];
     let valueAtCurrent: number;
     let evGainFromReroll: number;
-
     if (rerollsLeft > 0) {
       const layers = solveLayers(leaf, rerollsLeft);
       valueAtCurrent = layers[rerollsLeft][handIndex];
@@ -113,24 +141,8 @@ export function createAdvisor(V: ValueTable, rules: RuleConfig): Advisor {
       holdMask = dice.map(() => true);
       evGainFromReroll = 0;
     }
-
-    const perCategory: PerCategoryAdvice[] = CATEGORY_IDS.map((category, c) => {
-      const filled = isCategoryFilled(card, category);
-      const sNow = scoreTable[handIndex * NUM_CATEGORIES + c];
-      let evIfReroll = sNow;
-      if (rerollsLeft > 0) {
-        const layers = solveLayers(columnLeaf[c], rerollsLeft);
-        evIfReroll = layers[rerollsLeft][handIndex];
-      }
-      return { category, filled, scoreNow: sNow, evIfReroll, delta: evIfReroll - sNow };
-    });
-
-    const comboProbs: ComboProbInfo[] = COMBO_IDS.map((combo) => ({
-      combo,
-      label: COMBO_LABEL[combo],
-      prob: comboProbability(combo, handIndex, rerollsLeft),
-    }));
-
+    const perCategory = buildPerCategory(card, handIndex, rerollsLeft);
+    const comboProbs = buildComboProbs(handIndex, rerollsLeft);
     return {
       rerollsLeft,
       recommendScoreNow,
@@ -144,5 +156,54 @@ export function createAdvisor(V: ValueTable, rules: RuleConfig): Advisor {
     };
   }
 
-  return { advise };
+  function adviseAdditional(card: Scorecard, dice: readonly number[], rerollsLeft: number): Advice {
+    const handIndex = handIndexOfDice(dice);
+    const filledMask = filledMaskOf(card);
+    const cappedUpper = cappedUpperOf(card);
+    const yf = yachtFiftyOf(card, rules);
+    const la = lowerAliveOf(card, rules);
+    const alreadyTotal = grandTotal(card, rules);
+    const leaf = buildOptimalLeafAdditional(scoreTable, V, filledMask, cappedUpper, yf, la, rules);
+    const scoreNow = scoreNowChoiceForHandAdditional(
+      scoreTable, V, filledMask, cappedUpper, yf, la, rules, handIndex,
+    );
+    let recommendScoreNow: boolean;
+    let holdMask: boolean[];
+    let valueAtCurrent: number;
+    let evGainFromReroll: number;
+    if (rerollsLeft > 0) {
+      const layers = solveLayers(leaf, rerollsLeft);
+      valueAtCurrent = layers[rerollsLeft][handIndex];
+      const bk = bestKeep(layers[rerollsLeft - 1], handIndex);
+      recommendScoreNow = keepSizes[bk.keepIndex] === 5;
+      holdMask = keepToHoldMask(ALL_KEEPS[bk.keepIndex], dice);
+      evGainFromReroll = valueAtCurrent - leaf[handIndex];
+      if (evGainFromReroll < 0) evGainFromReroll = 0;
+    } else {
+      valueAtCurrent = leaf[handIndex];
+      recommendScoreNow = true;
+      holdMask = dice.map(() => true);
+      evGainFromReroll = 0;
+    }
+    const perCategory = buildPerCategory(card, handIndex, rerollsLeft);
+    const comboProbs = buildComboProbs(handIndex, rerollsLeft);
+    return {
+      rerollsLeft,
+      recommendScoreNow,
+      holdMask,
+      bestCategory: CATEGORY_IDS[scoreNow.categoryIndex],
+      bestCategoryScoreNow: scoreNow.rawScore,
+      expectedFinalScore: alreadyTotal + valueAtCurrent,
+      evGainFromReroll,
+      perCategory,
+      comboProbs,
+      windfall: {
+        active: scoreNow.isWindfall,
+        bonus: rules.multiYachtBonusAmount,
+        category: CATEGORY_IDS[scoreNow.categoryIndex],
+      },
+    };
+  }
+
+  return { advise: additional ? adviseAdditional : adviseDefault };
 }

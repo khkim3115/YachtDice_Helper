@@ -30,10 +30,10 @@ export default function App() {
     if (advice) markHelperUsed();
   }, [advice, markHelperUsed]);
 
-  // 헬퍼 데이터는 백그라운드로 미리 받아둔다(토글 시 즉시 동작). 추가 룰에서는 건너뛴다.
+  // 헬퍼 데이터는 백그라운드로 미리 받아둔다(토글 시 즉시 동작). 프리셋이 바뀌면 다시 로드.
   useEffect(() => {
     if (helperSupported) void loadTable();
-  }, [loadTable, helperSupported]);
+  }, [loadTable, helperSupported, rulePreset]);
 
   return (
     <div className="app">
