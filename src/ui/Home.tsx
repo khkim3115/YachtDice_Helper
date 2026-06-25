@@ -24,9 +24,9 @@ export function Home() {
   const [rulePreset, setRulePreset] = useState<RulePresetId>('default');
   const [code, setCode] = useState('');
 
-  const helperSupported = RULE_PRESETS[rulePreset].helperSupported;
-  // 추가 룰은 헬퍼 미지원 → 토글 강제 off.
-  const helperOn = helperAllowed && helperSupported;
+  // 멀티 추가 룰 방은 서버가 helper_allowed=false 를 강제(별도 이슈) → 토글은 기본 룰에서만.
+  const mpHelperSelectable = rulePreset === 'default';
+  const helperOn = helperAllowed && mpHelperSelectable;
 
   const nameOk = name.trim().length > 0;
 
@@ -131,13 +131,13 @@ export function Home() {
                       className={`switch ${helperOn ? 'on' : ''}`}
                       role="switch"
                       aria-checked={helperOn}
-                      aria-disabled={!helperSupported}
-                      disabled={!helperSupported}
-                      onClick={() => helperSupported && setHelperAllowed((v) => !v)}
+                      aria-disabled={!mpHelperSelectable}
+                      disabled={!mpHelperSelectable}
+                      onClick={() => mpHelperSelectable && setHelperAllowed((v) => !v)}
                     />
                   </div>
-                  {!helperSupported && (
-                    <div className="mp-note">추가 룰에서는 헬퍼를 사용할 수 없습니다.</div>
+                  {!mpHelperSelectable && (
+                    <div className="mp-note">멀티 추가 룰 방에서는 헬퍼를 사용할 수 없습니다.</div>
                   )}
                   <button className="mp-primary" disabled={!nameOk || busy} onClick={onCreate}>
                     방 만들기

@@ -23,12 +23,12 @@ import {
 const ADD = ADDITIONAL_RULES;
 
 describe('프리셋 정의', () => {
-  it('기본은 헬퍼 지원·보너스 off, 추가는 헬퍼 미지원·보너스 on', () => {
+  it('기본은 헬퍼 지원·보너스 off, 추가는 헬퍼 지원·보너스 on', () => {
     expect(RULE_PRESETS.default.helperSupported).toBe(true);
     expect(RULE_PRESETS.default.config.multiYachtBonus).toBe(false);
     expect(RULE_PRESETS.default.config.lowerFourBonus).toBe(false);
 
-    expect(RULE_PRESETS.additional.helperSupported).toBe(false);
+    expect(RULE_PRESETS.additional.helperSupported).toBe(true);
     expect(ADD.multiYachtBonus).toBe(true);
     expect(ADD.multiYachtBonusAmount).toBe(100);
     expect(ADD.lowerFourBonus).toBe(true);
