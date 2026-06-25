@@ -19,10 +19,21 @@ export function HelperPanel({ advice }: { advice: Advice | null }) {
   } else {
     const keptValues = dice.filter((_, i) => advice.holdMask[i]);
     const bestKo = CATEGORY_META[advice.bestCategory].ko;
+    const windfall = advice.windfall?.active ? advice.windfall : null;
 
     body = (
       <>
-        {advice.recommendScoreNow ? (
+        {windfall ? (
+          <div className="banner score windfall">
+            <span className="icon">🎰</span>
+            <span className="text">
+              <span className="main">
+                요트의 달인! <em>{bestKo}</em> 칸에 기록
+              </span>
+              <span className="sub">보너스 +{windfall.bonus}점</span>
+            </span>
+          </div>
+        ) : advice.recommendScoreNow ? (
           <div className="banner score">
             <span className="icon">✅</span>
             <span className="text">
