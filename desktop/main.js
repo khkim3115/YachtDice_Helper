@@ -37,6 +37,8 @@ let win = null;
 let shownAt = 0; // 표시 직후 즉시 blur(깜빡임) 무시
 let panelMode = 'solo'; // 'solo' | 'mp' — 트레이 메뉴가 결정, 렌더러에 전달
 let sideOpen = false; // 멀티 게임에서 상대 점수 패널이 펼쳐져 있는지(폭 결정)
+let pinned = false; // 위치 고정(핀) — true 면 바깥 클릭(blur)에도 창을 숨기지 않는다. settings.pinned 미러.
+let suppressMoveSave = false; // positionPanel 의 프로그램 이동을 'moved' 저장에서 제외(자기 이동을 사용자 이동으로 오인 방지).
 // 자동 업데이트 상태 — 메모리 전용(settings.json 영속화 안 함). 트레이 메뉴 라벨이 이 값을 읽는다.
 // 진행 표시(휘발성)와 "설치 가능"(영속 사실)을 분리한다 — 주기 재확인의 진행 이벤트가
 // 이미 받아둔 설치본 표시를 덮어써 사라지게 하는 회귀를 막기 위함.
@@ -87,6 +89,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     app.setAppUserModelId('com.khkim.yachtdice');
+    pinned = readSettings().pinned === true; // 저장된 핀 상태 복원(blur 핸들러가 이 미러를 읽는다)
     setupAutostartDefault();
     createTray();
     createWindow(); // 미리 로드(빠른 첫 오픈), 메뉴에서 띄운다.
@@ -106,7 +109,7 @@ function createWindow() {
     show: false,
     frame: false,
     resizable: false,
-    movable: false,
+    movable: true, // 헤더(popup.html .top)의 -webkit-app-region:drag 로 창을 끌어 옮길 수 있게 한다.
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
@@ -143,6 +146,35 @@ function createWindow() {
         ipcMain.emit('yd-set-opacity', {}, { value: origOpacity, persist: true }); // 원래 값으로 복원
         const opResult = { op45, saved45, opClamp, restored: Math.round(win.getOpacity() * 100) };
         console.log('[yd] opacity-test', JSON.stringify(opResult));
+
+        // 드래그 이동/위치 기억/핀/초기화 검증 — main 측 상태를 직접 점검(영속 설정은 끝에 원복).
+        const origWinPos = readSettings().winPos;
+        const origPinned = readSettings().pinned;
+        const movable = win.isMovable(); // movable:true 반영 확인
+        const disp = screen.getPrimaryDisplay().workArea;
+        const wantX = disp.x + 40;
+        const wantY = disp.y + 40;
+        { const s = readSettings(); s.winPos = { x: wantX, y: wantY }; writeSettings(s); }
+        positionPanel(); // 저장 위치 복원(작업영역 안 클램프 — 40,40 은 범위 내라 그대로)
+        const rb = win.getBounds();
+        const restoredOK = Math.abs(rb.x - wantX) <= 2 && Math.abs(rb.y - wantY) <= 2;
+        resetPanelPosition(); // winPos 삭제 → 트레이 우하단 기본 위치 복귀
+        const ar = win.getBounds();
+        const resetCleared = !readSettings().winPos;
+        const resetBottom = ar.y > disp.y + disp.height / 2; // 대략 하단 앵커로 돌아왔는지
+        // 핀: ON 이면 blur 에도 안 숨고, OFF 면 숨는다(표시 직후 300ms 가드는 우회).
+        setPinned(true);
+        win.show(); shownAt = Date.now() - 1000; win.emit('blur');
+        const pinnedKeepsVisible = win.isVisible();
+        setPinned(false);
+        shownAt = Date.now() - 1000; win.emit('blur');
+        const unpinnedHides = !win.isVisible();
+        const dragResult = { movable, restoredOK, resetCleared, resetBottom, pinnedKeepsVisible, unpinnedHides };
+        console.log('[yd] drag-test', JSON.stringify(dragResult));
+        // 원복(실사용 설정 보존) 후 표시 상태 복구.
+        { const s = readSettings(); if (origWinPos) s.winPos = origWinPos; else delete s.winPos; if (origPinned === undefined) delete s.pinned; else s.pinned = origPinned; writeSettings(s); pinned = origPinned === true; }
+        win.show(); shownAt = Date.now();
+
         await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space'}))");
         const before = await js('JSON.stringify({rolls:state.rolls,rolled:state.rolled})');
         // Esc → 숨기기(yd.hide). 창이 파괴되면 상태가 초기화될 것.
@@ -154,6 +186,11 @@ function createWindow() {
         await new Promise((r) => setTimeout(r, 200));
         const after = destroyed ? 'DESTROYED' : await js('JSON.stringify({rolls:state.rolls,rolled:state.rolled})');
         console.log('[yd] persist-test before:', before, '| afterEscHide destroyed:', destroyed, 'wasHidden:', !visible, '| after:', after);
+        // Windows GUI 앱은 부모 셸 stdout 에 로그가 안 잡혀, 결과를 파일로도 남긴다(YD_SMOKE_OUT 지정 시).
+        if (process.env.YD_SMOKE_OUT) {
+          const out = { opacity: opResult, drag: dragResult, persist: { before, destroyed, wasHidden: !visible, after } };
+          try { fs.writeFileSync(process.env.YD_SMOKE_OUT, JSON.stringify(out, null, 2)); } catch { /* 무시 */ }
+        }
         app.isQuitting = true;
         app.quit();
       })();
@@ -163,11 +200,23 @@ function createWindow() {
     console.error('[yd] load failed:', code, desc, url);
   });
 
-  // 팝업 바깥 클릭(포커스 상실) → 숨김.
+  // 팝업 바깥 클릭(포커스 상실) → 숨김. 단, 위치 고정(핀) 모드면 숨기지 않는다(딴 작업하며 띄워두기).
   win.on('blur', () => {
+    if (pinned) return;
     if (win.webContents.isDevToolsOpened()) return;
     if (Date.now() - shownAt < 300) return;
     win.hide();
+  });
+
+  // 사용자가 헤더를 끌어 창을 옮기면 그 위치를 기억(다음 표시 때 같은 자리에 복원).
+  // positionPanel 이 setBounds 로 옮긴 경우(suppressMoveSave)는 저장하지 않는다 — 자기 이동을 사용자 이동으로 오인 방지.
+  win.on('moved', () => {
+    if (suppressMoveSave) return;
+    const b = win.getBounds();
+    const s = readSettings();
+    s.winPos = { x: b.x, y: b.y };
+    writeSettings(s);
+    rebuildTrayMenu(); // '위치 초기화' 항목 활성화 갱신
   });
 
   // 닫기(✕ / Alt+F4) = 트레이로 숨김.
@@ -193,18 +242,32 @@ function panelDims() {
   return { width: sideOpen ? MP_W_WIDE : MP_W, height: MP_H };
 }
 
-// 트레이 아이콘 위치 기준으로 팝업을 우하단(작업 영역 안)에 배치.
+// 팝업 위치 결정 — 사용자가 옮겨둔 위치(winPos)가 있으면 그 자리에 복원, 없으면 트레이 우하단(기본).
+// 크기는 항상 현재 모드(panelDims)에 맞춘다. 저장 위치는 그 지점이 속한 디스플레이의 작업영역 안으로 클램프해
+// 모니터 분리·해상도 변경으로 화면 밖에 놓여 잃어버리는 것을 막는다.
 function positionPanel() {
-  const tb = tray.getBounds();
-  const area = screen.getDisplayMatching(tb).workArea;
   const dims = panelDims();
   const width = dims.width;
-  const height = Math.min(dims.height, area.height - 16);
-  let x = Math.round(tb.x + tb.width / 2 - width / 2);
-  x = Math.min(x, area.x + area.width - width - 8);
-  x = Math.max(x, area.x + 8);
-  const y = area.y + area.height - height - 8;
+  const saved = readSettings().winPos;
+  let x, y, height;
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+    const area = screen.getDisplayNearestPoint({ x: saved.x, y: saved.y }).workArea;
+    height = Math.min(dims.height, area.height - 16);
+    x = Math.min(Math.max(saved.x, area.x + 8), area.x + area.width - width - 8);
+    y = Math.min(Math.max(saved.y, area.y + 8), area.y + area.height - height - 8);
+  } else {
+    const tb = tray.getBounds();
+    const area = screen.getDisplayMatching(tb).workArea;
+    height = Math.min(dims.height, area.height - 16);
+    x = Math.round(tb.x + tb.width / 2 - width / 2);
+    x = Math.min(x, area.x + area.width - width - 8);
+    x = Math.max(x, area.x + 8);
+    y = area.y + area.height - height - 8;
+  }
+  // setBounds 가 유발하는 'moved' 는 사용자 이동이 아니므로 저장에서 제외(다음 매크로태스크에 해제).
+  suppressMoveSave = true;
   win.setBounds({ x, y, width, height });
+  setTimeout(() => { suppressMoveSave = false; }, 0);
 }
 
 function showPanel(mode = 'solo') {
@@ -234,7 +297,7 @@ function createTray() {
 
 // 트레이 메뉴 템플릿(평면 배열). Electron 의존 값(자동실행·테마·업데이트 상태)을 인자로 받아 메뉴 구성과
 // 분리한다 — 상태를 주입해 항목 집합을 따로 점검할 수 있다. update 에 따라 업데이트 항목 집합이 달라진다.
-function buildTrayTemplate({ autoOn, isLight, update }) {
+function buildTrayTemplate({ autoOn, isLight, pinned, hasCustomPos, update }) {
   const items = [
     { label: 'Yacht Dice', enabled: false },
     { type: 'separator' },
@@ -262,6 +325,17 @@ function buildTrayTemplate({ autoOn, isLight, update }) {
         }
         rebuildTrayMenu(); // 체크 상태 갱신
       },
+    },
+    {
+      label: '위치 고정',
+      type: 'checkbox',
+      checked: pinned,
+      click: (item) => setPinned(item.checked),
+    },
+    {
+      label: '위치 초기화',
+      enabled: hasCustomPos, // 옮긴 적이 있을 때만 활성(트레이 우하단 기본 위치로 복귀)
+      click: () => resetPanelPosition(),
     },
     { type: 'separator' },
   ];
@@ -305,10 +379,30 @@ function rebuildTrayMenu() {
   const template = buildTrayTemplate({
     autoOn: app.getLoginItemSettings().openAtLogin,
     isLight: themeOf(readSettings()) === 'light',
+    pinned,
+    hasCustomPos: !!readSettings().winPos,
     // 설치본에서만 업데이트 항목 노출. app.isPackaged 는 실행 내내 불변이라 init 순서와 무관(=autoUpdaterActive 보다 안전).
     update: { enabled: app.isPackaged, state: updateState, ready: updateReady, version: pendingUpdateVersion },
   });
   tray.setContextMenu(Menu.buildFromTemplate(template));
+}
+
+// 위치 고정(핀) 토글 — settings.pinned 에 저장하고 미러를 갱신(blur 핸들러가 즉시 반영).
+function setPinned(on) {
+  pinned = !!on;
+  const s = readSettings();
+  s.pinned = pinned;
+  writeSettings(s);
+  rebuildTrayMenu();
+}
+
+// 위치 초기화 — 저장된 winPos 를 지워 트레이 우하단 기본 배치로 되돌린다(옮긴 창을 잃었을 때의 탈출구).
+function resetPanelPosition() {
+  const s = readSettings();
+  delete s.winPos;
+  writeSettings(s);
+  if (win && !win.isDestroyed() && win.isVisible()) positionPanel(); // 보이는 중이면 즉시 기본 위치로
+  rebuildTrayMenu(); // '위치 초기화' 비활성화 갱신
 }
 
 // ── 자동 업데이트(electron-updater + GitHub Release) ──
