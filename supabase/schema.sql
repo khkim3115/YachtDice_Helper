@@ -480,6 +480,85 @@ begin
   );
 end $$;
 
+-- ── 사용자 피드백(버그/건의/기타) ────────────────────────────────────────
+-- 인앱 폼 → submit_feedback RPC 만 쓰기 가능. 읽기는 완전 비공개(SELECT 정책 없음)
+-- → 운영자는 Supabase Table Editor(서비스 롤)에서만 확인. 클라는 절대 못 읽음.
+-- 스팸 방지(계층): ① 허니팟(봇 조용히 무시) ② 종류/길이 CHECK·검증 ③ 세션당 레이트리밋(best-effort)
+--   ④ 전역 분당 백스톱(폭주 시 증가율 상한). 익명 세션은 무료 재발급되므로 ③ 단독은 결정적 방어가 아니다 —
+--   실질 봇 방어는 Supabase 대시보드의 '익명 가입' IP 레이트리밋 + (후속 단계) Cloudflare Turnstile 에 의존.
+create table public.feedback (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid,                                          -- 익명 세션 id(레이트리밋 키)
+  kind         text not null check (kind in ('bug','feature','other')),
+  message      text not null check (char_length(message) between 1 and 2000),
+  contact      text check (contact is null or char_length(contact) <= 200),
+  app_version  text check (app_version is null or char_length(app_version) <= 40),
+  screen       text check (screen is null or char_length(screen) <= 40),
+  helper_used  boolean,
+  user_agent   text check (user_agent is null or char_length(user_agent) <= 500),
+  status       text not null default 'new' check (status in ('new','triaged','done','spam')),
+  created_at   timestamptz not null default now()
+);
+create index feedback_triage_idx on public.feedback (status, created_at desc);
+
+alter table public.feedback enable row level security;
+-- SELECT 정책을 두지 않으므로 API 로는 아무도 못 읽는다(완전 비공개). 완전 비공개 테이블이라
+-- DML 뿐 아니라 잔여 권한(REFERENCES/TRIGGER/TRUNCATE 등)까지 전부 회수(revoke all)한다.
+revoke all on public.feedback from anon, authenticated;
+
+-- 피드백 제출(유일한 쓰기 표면). 익명 세션(auth.uid()) 필수 → 레이트리밋 키로 사용.
+create or replace function public.submit_feedback(
+  p_kind text, p_message text, p_contact text default null,
+  p_meta jsonb default '{}'::jsonb, p_hp text default '')
+returns void language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  -- 허니팟: 숨김 필드가 채워졌으면 봇 → 성공인 척 조용히 무시(에러 안 냄 = 함정 노출 방지).
+  if coalesce(p_hp, '') <> '' then return; end if;
+  if uid is null then raise exception 'not authenticated'; end if;
+  if p_kind not in ('bug','feature','other') then raise exception 'invalid kind'; end if;
+  if char_length(coalesce(p_message,'')) < 1 or char_length(p_message) > 2000 then
+    raise exception 'message length must be 1..2000';
+  end if;
+  if p_contact is not null and char_length(p_contact) > 200 then
+    raise exception 'contact too long';
+  end if;
+  -- 메타 jsonb 자체는 저장하지 않지만(추출 컬럼만 저장) 거대한 입력은 미리 차단.
+  if p_meta is not null and length(p_meta::text) > 4000 then raise exception 'meta too large'; end if;
+  -- 세션당 레이트리밋(best-effort): 10분 5건. definer 라 RLS 우회하고 자기 행을 셀 수 있음.
+  -- 익명 세션은 무료 재발급되므로 결정적 방어가 아니라 '정직한 사용자의 중복 제출'만 막는 용도.
+  if (select count(*) from public.feedback
+        where user_id = uid and created_at > now() - interval '10 minutes') >= 5 then
+    raise exception 'too many submissions';
+  end if;
+  -- 전역 분당 백스톱: uid 를 돌려가며 폭주해도 테이블 증가율의 상한을 둔다(정상 트래픽은 도달 불가).
+  if (select count(*) from public.feedback
+        where created_at > now() - interval '1 minute') >= 30 then
+    raise exception 'too many submissions';
+  end if;
+  insert into public.feedback(user_id, kind, message, contact, app_version, screen, helper_used, user_agent)
+  values (
+    uid,
+    p_kind,
+    left(p_message, 2000),
+    nullif(btrim(coalesce(p_contact, '')), ''),
+    nullif(left(coalesce(p_meta->>'app_version', ''), 40), ''),
+    nullif(left(coalesce(p_meta->>'screen', ''), 40), ''),
+    case when jsonb_typeof(p_meta->'helper_used') = 'boolean' then (p_meta->>'helper_used')::boolean else null end,
+    nullif(left(coalesce(p_meta->>'user_agent', ''), 500), '')
+  );
+end $$;
+
+-- 피드백 정리(운영자/서비스 롤 전용 — anon/authenticated 에 grant 하지 않음 → 쓰기 표면 안 늘어남).
+-- cleanup_rooms 와 동일하게 스케줄러(pg_cron 등)나 서비스 롤이 호출. 스팸/처리완료/오래된 미처리분 삭제.
+create or replace function public.cleanup_feedback()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.feedback where
+       status = 'spam'
+    or (status in ('done','triaged') and created_at < now() - interval '90 days');
+end $$;
+
 -- ── 실행 권한: 전부 회수 후 사용자용 RPC만 authenticated 부여 ─────────────
 revoke execute on all functions in schema public from public;
 revoke execute on all functions in schema public from anon;
@@ -502,6 +581,9 @@ grant execute on function public.is_room_member(uuid) to authenticated;
 
 -- 리더보드 제출: 익명(미로그인) 사용자도 호출 가능(웹/데스크톱 공용).
 grant execute on function public.submit_score(text, int, text, text) to anon, authenticated;
+
+-- 피드백 제출: 함수가 auth.uid() 를 요구하므로, 세션 없는 anon 롤 호출은 'not authenticated' 로 거부된다.
+grant execute on function public.submit_feedback(text, text, text, jsonb, text) to anon, authenticated;
 
 -- ── Realtime (Postgres Changes) ──────────────────────────────────────────
 alter publication supabase_realtime add table public.rooms;
