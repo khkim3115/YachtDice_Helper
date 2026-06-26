@@ -31,6 +31,17 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0',
+    date: '2026-06-26',
+    title: '미니 창 모드 — 작게 띄워 플레이',
+    changes: [
+      {
+        type: 'feature',
+        text: '🔳 상단 "미니 창" 버튼으로 항상 위에 뜨는 작은 저채도 패널을 띄워 플레이할 수 있어요. macOS 등에서도 가볍게 즐기세요. (Chrome·Edge 지원)',
+      },
+    ],
+  },
+  {
     version: '0.6.4',
     date: '2026-06-26',
     title: '카카오 오픈채팅 커뮤니티 링크',
