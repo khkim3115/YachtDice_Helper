@@ -9,6 +9,7 @@ import { HelpPanel } from './HelpPanel';
 import { PatchNotesModal } from './PatchNotesModal';
 import { FeedbackModal } from './FeedbackModal';
 import { InstallButton } from './InstallButton';
+import { MiniLauncherButton } from './MiniLauncherButton';
 
 // 패치노트 자동 노출은 페이지 로드당 1회만 평가(화면 전환에 따른 Header 재마운트에도 중복 방지).
 let patchNotesAutoChecked = false;
@@ -114,6 +115,7 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
           >
             💬
           </button>
+          <MiniLauncherButton />
           <InstallButton />
           <button className="gear" onClick={() => setSettingsOpen(true)} aria-label="설정">
             ⚙️
