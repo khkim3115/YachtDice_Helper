@@ -79,6 +79,22 @@ export function DownloadCards() {
             ⬇ 다운로드
           </a>
         </div>
+
+        <div className="dl-card">
+          <span className="dl-icon">🍎</span>
+          <span className="dl-text">
+            <b>
+              미니 창 <small className="dl-os">macOS · Chrome/Edge</small>
+            </b>
+            <small>
+              브라우저에서 헤더의 <b>🔳 미니 창</b> 버튼 → 항상 위에 뜨는 작은 패널. 설치(PWA)
+              하면 더 앱처럼 쓸 수 있어요. (Safari는 미니 창 미지원)
+            </small>
+          </span>
+          <button className="dl-btn" onClick={installPwa} disabled={installed}>
+            {installed ? '설치됨 ✓' : '⬇ 앱 설치'}
+          </button>
+        </div>
       </div>
 
       {showGuide && !installed && (
