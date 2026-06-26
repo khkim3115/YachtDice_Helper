@@ -28,7 +28,7 @@ const NEUTRAL_TITLE = 'Settings';
 const NEUTRAL_ICON =
   'data:image/svg+xml,' +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%23808080"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#808080"/></svg>',
   );
 
 // 같은 출처 스타일시트는 cssRules 를 통째로 복제, 접근 불가(cross-origin)면 <link> 로 대체.
@@ -57,6 +57,7 @@ export function usePictureInPicture(content: React.ReactElement) {
   const winRef = useRef<Window | null>(null);
   const rootRef = useRef<Root | null>(null);
   const savedTitleRef = useRef<string | null>(null);
+  const pendingRef = useRef(false);
   const contentRef = useRef(content);
   contentRef.current = content;
 
@@ -82,6 +83,9 @@ export function usePictureInPicture(content: React.ReactElement) {
       close(); // 이미 열려 있으면 토글로 닫기
       return;
     }
+    // 제스처 연타로 requestWindow 가 동시에 두 번 호출되는 것 방지
+    if (pendingRef.current) return;
+    pendingRef.current = true;
     try {
       const pip = await window.documentPictureInPicture!.requestWindow({
         width: MINI_W,
@@ -110,6 +114,8 @@ export function usePictureInPicture(content: React.ReactElement) {
       setOpen(true);
     } catch {
       // NotAllowedError(제스처 없음) 등 — 무시(앱 영향 없음).
+    } finally {
+      pendingRef.current = false;
     }
   }, [close, cleanup]);
 
