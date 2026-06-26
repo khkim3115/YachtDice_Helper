@@ -31,6 +31,17 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.4',
+    date: '2026-06-26',
+    title: '카카오 오픈채팅 커뮤니티 링크',
+    changes: [
+      {
+        type: 'feature',
+        text: '💬 피드백 모달에서 “카카오 오픈채팅으로 소통” 링크로 커뮤니티에 바로 들어올 수 있어요. 버그·건의 외 가벼운 소통은 여기서!',
+      },
+    ],
+  },
+  {
     version: '0.6.3',
     date: '2026-06-26',
     title: '피드백 보내기 추가',

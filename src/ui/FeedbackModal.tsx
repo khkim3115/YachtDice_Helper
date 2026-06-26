@@ -3,6 +3,7 @@
 // Supabase 미설정 시 폼은 비활성, GitHub 링크만 노출(graceful degradation).
 import { useEffect, useMemo, useState } from 'react';
 import { LATEST_VERSION } from '../data/changelog';
+import { activeCommunityLinks } from '../data/links';
 import { isSupabaseConfigured } from '../lib/supabase';
 import {
   buildGithubIssueUrl,
@@ -18,6 +19,9 @@ import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 
 const KINDS: FeedbackKind[] = ['bug', 'feature', 'other'];
+
+// 노출할 커뮤니티 링크(url 이 채워진 것만). 런타임에 바뀌지 않아 모듈 레벨에서 한 번만 계산.
+const COMMUNITY_LINKS_ACTIVE = activeCommunityLinks();
 
 /** 서버 예외 메시지를 사용자용 한국어로. 미매핑은 일반 안내. */
 function errorKo(e: unknown): string {
@@ -174,6 +178,23 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
                 {busy ? '보내는 중…' : '보내기'}
               </button>
             </div>
+
+            {COMMUNITY_LINKS_ACTIVE.length > 0 && (
+              <div className="fb-community">
+                {COMMUNITY_LINKS_ACTIVE.map((link) => (
+                  <a
+                    key={link.id}
+                    className="fb-community-link"
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {link.emoji ? `${link.emoji} ` : ''}
+                    {link.label} ↗
+                  </a>
+                ))}
+              </div>
+            )}
 
             <a className="fb-gh" href={githubUrl} target="_blank" rel="noopener noreferrer">
               GitHub 이슈로 직접 등록 ↗ <span className="fb-gh-sub">(GitHub 계정 필요)</span>

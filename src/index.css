@@ -2044,6 +2044,32 @@ button:disabled {
 .fb-gh-sub {
   opacity: 0.7;
 }
+/* 커뮤니티 소통 링크(카카오 오픈채팅 등) — GitHub 링크보다 한 단계 눈에 띄는 버튼형. */
+.fb-community {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.fb-community-link {
+  display: block;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.fb-community-link:hover {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
 /* ── 멀티플레이 채팅(떠 있는 토글 패널) ── */
 .chat-fab {
   position: fixed;
