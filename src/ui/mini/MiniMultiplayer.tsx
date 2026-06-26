@@ -1,6 +1,6 @@
 // 축소 멀티플레이 — multiplayerStore(서버 권위) 재사용. 헬퍼 없음.
 import { useState } from 'react';
-import { CATEGORY_IDS, CATEGORY_META, RULE_PRESETS } from '../../core/rules';
+import { CATEGORY_IDS, CATEGORY_META, ROLLS_PER_TURN, RULE_PRESETS } from '../../core/rules';
 import { grandTotal, isCategoryFilled } from '../../core/gameState';
 import { scoreDice } from '../../core/scoring';
 import {
@@ -12,7 +12,7 @@ import { Die } from '../Die';
 
 export function MiniMultiplayer() {
   const room = useMultiplayerStore((s) => s.room);
-  if (!room) return <MiniMpLobby />;
+  if (!room || room.status === 'lobby') return <MiniMpLobby />;
   if (room.status === 'finished') return <MiniMpOver />;
   return <MiniMpGame />;
 }
@@ -123,8 +123,8 @@ function MiniMpGame() {
   const dice = room.dice.length ? room.dice : [1, 2, 3, 4, 5];
   const held = room.held.length ? room.held : [false, false, false, false, false];
   const rolled = room.rollsUsed > 0;
-  const canRoll = myTurn && room.rollsUsed < 3;
-  const canReroll = myTurn && rolled && room.rollsUsed < 3;
+  const canRoll = myTurn && room.rollsUsed < ROLLS_PER_TURN;
+  const canReroll = myTurn && rolled && room.rollsUsed < ROLLS_PER_TURN;
 
   const toggleHold = (i: number) => {
     if (!canReroll) return;
@@ -136,7 +136,7 @@ function MiniMpGame() {
   return (
     <div className="mini-mp">
       <div className="mini-mp-turn">
-        {myTurn ? '내 차례' : `${active?.displayName ?? '상대'} 차례`} · {room.rollsUsed}/3
+        {myTurn ? '내 차례' : `${active?.displayName ?? '상대'} 차례`} · {room.rollsUsed}/{ROLLS_PER_TURN}
       </div>
       <div className="mini-dice">
         {dice.map((v, i) => (
@@ -153,7 +153,7 @@ function MiniMpGame() {
         ))}
       </div>
       <button className="mini-roll" disabled={!canRoll} onClick={() => void rollDice()}>
-        {room.rollsUsed === 0 ? '굴리기' : `리롤 (${3 - room.rollsUsed})`}
+        {room.rollsUsed === 0 ? '굴리기' : `리롤 (${ROLLS_PER_TURN - room.rollsUsed})`}
       </button>
       {me && (
         <div className="mini-card">

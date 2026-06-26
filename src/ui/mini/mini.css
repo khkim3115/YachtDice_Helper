@@ -115,11 +115,6 @@
   padding-top: 2px;
   border-top: 1px solid var(--border);
 }
-.mini-mp-stub {
-  margin: auto;
-  color: var(--faint);
-  font-size: 13px;
-}
 /* 빠른숨김 오버레이 — 전체를 덮는 무채색 '설정' 패널. */
 .mini-blank {
   position: absolute;

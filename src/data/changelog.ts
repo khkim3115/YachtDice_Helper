@@ -37,7 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         type: 'feature',
-        text: '🔳 상단 "미니 창" 버튼으로 항상 위에 뜨는 작은 저채도 패널을 띄워 플레이할 수 있어요. macOS 등에서도 가볍게 즐기세요. (Chrome·Edge 지원)',
+        text: '🔳 상단 “미니 창” 버튼으로 항상 위에 뜨는 작은 저채도 패널을 띄워 플레이할 수 있어요. macOS 등에서도 가볍게 즐기세요. (Chrome·Edge 지원)',
       },
     ],
   },
