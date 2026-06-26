@@ -503,6 +503,11 @@ button:disabled {
 .banner.reroll {
   border-color: var(--gold);
 }
+/* 요트의 달인 윈드폴(+100) — 일반 "지금 기록" 배너와 구분되는 골드 강조 링. */
+.banner.windfall {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+}
 .banner .icon {
   font-size: 26px;
 }
@@ -653,6 +658,121 @@ button:disabled {
   background: var(--accent);
   color: white;
   font-weight: 700;
+}
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 규칙 프리셋 선택 ────────────────────────────────── */
+.setting-group {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-group .t-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.preset-seg {
+  display: flex;
+  gap: 8px;
+}
+.preset-opt {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+}
+.preset-opt.active {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text);
+}
+.preset-desc {
+  margin-top: 8px;
+}
+.preset-warn {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--gold);
+}
+
+/* ── 추가 룰: 요트의 달인 / 요트도 포커처럼 ──────────── */
+.sc-badge.master {
+  color: white;
+  background: var(--accent);
+}
+.sc-row.master-target {
+  cursor: pointer;
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.sc-row.master-target:hover {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.sc-points.master {
+  color: var(--gold);
+}
+.master-hint {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--gold);
+  background: var(--gold-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.sc-extra {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.go-extra {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.go-master {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.lb-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.mp-note {
+  margin: -2px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.lb-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.lb-tab {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+}
+.lb-tab.active {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text);
 }
 
 /* ── 게임 오버 ──────────────────────────────────────── */
@@ -1293,8 +1413,29 @@ button:disabled {
 .mini.current {
   border-color: var(--gold);
 }
+.mini.clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+.mini.clickable:hover {
+  border-color: var(--accent);
+}
+.mini.clickable:active {
+  transform: translateY(1px);
+}
+.mini.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+}
 .mini.offline {
   opacity: 0.55;
+}
+.mp-view-tag {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  vertical-align: middle;
 }
 .mini-head {
   display: flex;
@@ -1902,4 +2043,195 @@ button:disabled {
 }
 .fb-gh-sub {
   opacity: 0.7;
+}
+/* ── 멀티플레이 채팅(떠 있는 토글 패널) ── */
+.chat-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  color: #fff;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow);
+  z-index: 50;
+}
+.chat-fab:hover {
+  filter: brightness(1.08);
+}
+.chat-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--bg-2);
+}
+.chat-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  height: 440px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 50;
+  overflow: hidden;
+}
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.chat-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+.chat-close {
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+.chat-close:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.chat-msgs {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--faint);
+  font-size: 13px;
+  padding: 0 12px;
+}
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 85%;
+}
+.chat-msg.me {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.chat-meta {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.chat-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-msg.me .chat-name {
+  color: var(--accent);
+}
+.chat-time {
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.chat-bubble {
+  padding: 7px 11px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.chat-msg.me .chat-bubble {
+  background: var(--accent-strong);
+  color: #fff;
+}
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.chat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 8px 11px;
+  outline: none;
+}
+.chat-input:focus {
+  border-color: var(--accent);
+}
+.chat-send {
+  flex: 0 0 auto;
+  background: var(--accent-strong);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0 14px;
+  border-radius: 10px;
+}
+.chat-send:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* 모바일 — 하단 시트(전체 폭). */
+@media (max-width: 560px) {
+  .chat-panel {
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 60vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .chat-fab {
+    right: 14px;
+    bottom: 14px;
+  }
 }

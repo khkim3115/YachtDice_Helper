@@ -29,3 +29,24 @@ export function isFilled(filledMask: number, catIndex: number): boolean {
 export function capUpper(value: number): number {
   return value > UPPER_CAP ? UPPER_CAP : value;
 }
+
+// ── 추가 룰(additional) 전용 패킹 ──────────────────────────────────────
+// 상태 = (12비트 마스크 × 상단 0..63) × yachtFifty(1) × lowerAlive(1).
+// index = (mask*64 + upper) * 4 + (yf?2:0) + (la?1:0). 기본 레이아웃과 별개.
+export const STATE_COUNT_ADDITIONAL = STATE_COUNT * 4; // 1,048,576
+
+/** yacht 카테고리 인덱스/비트(요트의 달인 게이트). */
+export const YACHT_INDEX = CATEGORY_IDS.indexOf('yacht'); // 11
+export const YACHT_BIT = 1 << YACHT_INDEX; // 2048
+
+/** 하단 4종(fourKind·fullHouse·smallStraight·largeStraight) 비트 합. */
+export const LOWER_FOUR_BITS = (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10); // 1920
+
+export function packStateAdditional(
+  filledMask: number,
+  upperCapped: number,
+  yachtFifty: boolean,
+  lowerAlive: boolean,
+): number {
+  return (filledMask * UPPER_LEVELS + upperCapped) * 4 + (yachtFifty ? 2 : 0) + (lowerAlive ? 1 : 0);
+}

@@ -1,10 +1,11 @@
 // 모드 무관 보드 어댑터: 솔로(gameStore) / 멀티(multiplayerStore)를 동일한 shape 로 제공.
 // 기존 컴포넌트(DiceTray·Scorecard·HelperPanel)는 useGameStore 대신 useBoard 만 본다.
 
-import type { CategoryId, RuleConfig } from '../core/rules';
-import { DEFAULT_RULES, ROLLS_PER_TURN } from '../core/rules';
+import type { CategoryId, RuleConfig, RulePresetId } from '../core/rules';
+import { ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
 import { createScorecard, isGameOver } from '../core/gameState';
+import { isFiveOfAKind } from '../core/scoring';
 import { useAppStore } from './appStore';
 import type { TableStatus } from './gameStore';
 import { useGameStore } from './gameStore';
@@ -19,6 +20,8 @@ export interface BoardView {
   held: boolean[];
   rollsUsed: number;
   rules: RuleConfig;
+  /** 현재 보드의 룰 프리셋(헬퍼 테이블 일치 확인용). */
+  rulePreset: RulePresetId;
   canRoll: boolean;
   canReroll: boolean;
   /** 보드 상호작용 불가(솔로: 게임 종료 / 멀티: 게임 종료). */
@@ -29,6 +32,11 @@ export interface BoardView {
   showProbabilities: boolean;
   highlightSuggestion: boolean;
   tableStatus: TableStatus;
+  /**
+   * 요트의 달인 발동 중(추가 룰): 요트(50) 기록 후 또 5개 같은 눈이 나온 상태.
+   * 이때 빈 칸 아무 곳이나 클릭하면 그 칸에 보너스 점수를 적는다.
+   */
+  yachtMasterActive: boolean;
   roll: () => void;
   toggleHold: (i: number) => void;
   assign: (cat: CategoryId) => void;
@@ -51,6 +59,7 @@ export function useBoard(): BoardView {
   const soloHeld = useGameStore((s) => s.held);
   const soloRollsUsed = useGameStore((s) => s.rollsUsed);
   const soloRules = useGameStore((s) => s.rules);
+  const soloRulePreset = useGameStore((s) => s.rulePreset);
   const soloRoll = useGameStore((s) => s.roll);
   const soloToggleHold = useGameStore((s) => s.toggleHold);
   const soloAssign = useGameStore((s) => s.assign);
@@ -79,21 +88,33 @@ export function useBoard(): BoardView {
     const finished = mpRoom.status !== 'playing';
     const dice = mpRoom.dice.length === 5 ? mpRoom.dice : PLACEHOLDER_DICE;
     const held = mpRoom.held.length === 5 ? mpRoom.held : PLACEHOLDER_HELD;
+    const mpRules = RULE_PRESETS[mpRoom.rulePreset].config;
+    const activeCard = active?.scorecard ?? createScorecard();
+    // 요트의 달인(내 차례 한정): 활성 카드의 요트가 50 + 최종 주사위가 5개 같은 눈.
+    const mpYachtMasterActive =
+      mpRules.multiYachtBonus &&
+      isMyTurn &&
+      mpRoom.rollsUsed > 0 &&
+      activeCard.scores.yacht === mpRules.yachtScore &&
+      isFiveOfAKind(dice);
 
     return {
-      card: active?.scorecard ?? createScorecard(),
+      card: activeCard,
       dice,
       held,
       rollsUsed: mpRoom.rollsUsed,
-      rules: DEFAULT_RULES,
+      rules: mpRules,
+      rulePreset: mpRoom.rulePreset,
       canRoll: isMyTurn && mpRoom.rollsUsed < ROLLS_PER_TURN,
       canReroll: isMyTurn && mpRoom.rollsUsed > 0 && mpRoom.rollsUsed < ROLLS_PER_TURN,
       gameOver: finished,
       readOnly: !isMyTurn,
-      helperEnabled: mpRoom.helperAllowed && isMyTurn,
+      // 추가 룰 방은 서버가 helper_allowed=false 를 강제하지만, 방어적으로 프리셋도 함께 확인.
+      helperEnabled: mpRoom.helperAllowed && isMyTurn && RULE_PRESETS[mpRoom.rulePreset].helperSupported,
       showProbabilities: settings.showProbabilities,
       highlightSuggestion: settings.highlightSuggestion,
       tableStatus,
+      yachtMasterActive: mpYachtMasterActive,
       roll: () => {
         void mpRoll();
       },
@@ -111,20 +132,30 @@ export function useBoard(): BoardView {
   }
 
   // 솔로(기본)
+  const helperSupported = RULE_PRESETS[soloRulePreset].helperSupported;
+  const yachtMasterActive =
+    soloRules.multiYachtBonus &&
+    soloRollsUsed > 0 &&
+    soloCard.scores.yacht === soloRules.yachtScore &&
+    isFiveOfAKind(soloDice);
+
   return {
     card: soloCard,
     dice: soloDice,
     held: soloHeld,
     rollsUsed: soloRollsUsed,
     rules: soloRules,
+    rulePreset: soloRulePreset,
     canRoll: soloCanRoll,
     canReroll: soloCanReroll,
     gameOver: soloGameOver || isGameOver(soloCard),
     readOnly: false,
-    helperEnabled: settings.helperEnabled,
+    // 추가 룰(헬퍼 미지원)에서는 헬퍼 UI 전체를 끈다.
+    helperEnabled: settings.helperEnabled && helperSupported,
     showProbabilities: settings.showProbabilities,
     highlightSuggestion: settings.highlightSuggestion,
     tableStatus,
+    yachtMasterActive,
     roll: soloRoll,
     toggleHold: soloToggleHold,
     assign: soloAssign,

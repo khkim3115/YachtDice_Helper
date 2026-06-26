@@ -107,9 +107,39 @@ export interface RuleConfig {
   yachtScore: number;
   /** 5개 모두 같을 때 풀하우스로도 인정할지(하우스 룰). */
   fiveOfAKindCountsAsFullHouse: boolean;
+  /**
+   * 요트의 달인: 요트(=yachtScore)를 이미 기록한 뒤 또 5개 같은 눈이 나오면,
+   * 그 턴은 정상 채점 대신 빈 칸 1개를 소비해 보너스 점수를 적는다(반복 가능).
+   * 보너스 점수는 총점에만 더하며 상단 소계·요트도 포커처럼 판정에는 포함하지 않는다.
+   */
+  multiYachtBonus: boolean;
+  /** 요트의 달인 보너스 점수(빈 칸 1개당). */
+  multiYachtBonusAmount: number;
+  /**
+   * 요트도 포커처럼: 하단 4종(포카드·풀하우스·스몰·라지 스트레이트)을
+   * 모두 0점이 아닌 실제 조합으로 채우면 칸 소비 없이 총점에 보너스를 더한다.
+   */
+  lowerFourBonus: boolean;
+  /** 요트도 포커처럼 보너스 점수. */
+  lowerFourBonusAmount: number;
 }
 
-/** 한국 모바일 앱 관례 기본 룰. */
+/**
+ * 요트도 포커처럼 보너스 대상 하단 4종(요트 제외).
+ * 4개 모두 실제 조합(>0)으로 채워야 보너스가 발동한다.
+ */
+export const LOWER_FOUR_CATEGORIES: readonly CategoryId[] = [
+  'fourKind',
+  'fullHouse',
+  'smallStraight',
+  'largeStraight',
+] as const;
+
+/**
+ * 한국 모바일 앱 관례 기본 룰.
+ * ⚠️ 이 객체의 어떤 필드든 바꾸면 V.bin 이 무효화된다(CLAUDE.md). 추가 룰은 별도 객체로 둔다.
+ * 추가 보너스 플래그는 모두 off — 기본 룰의 채점·최적 평균(≈191.8)은 변하지 않는다.
+ */
 export const DEFAULT_RULES: RuleConfig = {
   upperBonusThreshold: 63,
   upperBonusAmount: 35,
@@ -119,7 +149,60 @@ export const DEFAULT_RULES: RuleConfig = {
   largeStraightScore: 30,
   yachtScore: 50,
   fiveOfAKindCountsAsFullHouse: false,
+  multiYachtBonus: false,
+  multiYachtBonusAmount: 0,
+  lowerFourBonus: false,
+  lowerFourBonusAmount: 0,
 };
+
+/**
+ * 추가 룰 — 기본 채점은 동일하되 두 보너스 메커니즘을 켠다.
+ * - 요트의 달인: 반복 요트 시 빈 칸 1개에 +100.
+ * - 요트도 포커처럼: 하단 4종 실제 달성 시 총점 +50.
+ * 헬퍼(V.bin)는 이 룰을 표현할 수 없어 비활성(별도 후속 이슈).
+ */
+export const ADDITIONAL_RULES: RuleConfig = {
+  ...DEFAULT_RULES,
+  multiYachtBonus: true,
+  multiYachtBonusAmount: 100,
+  lowerFourBonus: true,
+  lowerFourBonusAmount: 50,
+};
+
+/** 룰 프리셋 식별자. 멀티 룸·리더보드의 rule_preset_id 와 동일 키를 쓴다. */
+export type RulePresetId = 'default' | 'additional';
+
+export interface RulePreset {
+  id: RulePresetId;
+  ko: string;
+  en: string;
+  /** 설정/방 만들기 UI 설명. */
+  desc: string;
+  config: RuleConfig;
+  /** 최적-EV 헬퍼(V.bin) 지원 여부. additional 은 false. */
+  helperSupported: boolean;
+}
+
+export const RULE_PRESETS: Record<RulePresetId, RulePreset> = {
+  default: {
+    id: 'default',
+    ko: '기본 룰',
+    en: 'Standard',
+    desc: '한국 모바일 앱 관례 기본 규칙.',
+    config: DEFAULT_RULES,
+    helperSupported: true,
+  },
+  additional: {
+    id: 'additional',
+    ko: '추가 룰',
+    en: 'Extra',
+    desc: '요트의 달인(반복 요트 +100)·요트도 포커처럼(하단 4종 완성 +50).',
+    config: ADDITIONAL_RULES,
+    helperSupported: true,
+  },
+};
+
+export const DEFAULT_PRESET_ID: RulePresetId = 'default';
 
 export const DICE_COUNT = 5;
 export const ROLLS_PER_TURN = 3; // 최초 1 + 리롤 2

@@ -38,7 +38,8 @@ export default defineConfig({
       workbox: {
         // bin 포함이 핵심: V.bin(헬퍼 값 테이블)까지 프리캐시 → 완전 오프라인.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,bin,woff,woff2}'],
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // V.additional.bin(4.0MiB)까지 precache 허용. base 1MB + additional 4MB.
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         navigateFallback: 'index.html',

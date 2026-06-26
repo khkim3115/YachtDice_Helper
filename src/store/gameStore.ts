@@ -1,11 +1,18 @@
 // 게임 상태(솔로 점수 도전) + 설정 + 헬퍼(advisor) 통합. Zustand.
 
 import { create } from 'zustand';
-import type { CategoryId, RuleConfig } from '../core/rules';
-import { DEFAULT_RULES, DICE_COUNT, ROLLS_PER_TURN } from '../core/rules';
+import type { CategoryId, RuleConfig, RulePresetId } from '../core/rules';
+import { DEFAULT_PRESET_ID, DICE_COUNT, ROLLS_PER_TURN, RULE_PRESETS } from '../core/rules';
+import { STATE_COUNT, STATE_COUNT_ADDITIONAL } from '../core/stateIndex';
 import type { Scorecard } from '../core/gameState';
-import { createScorecard, isCategoryFilled, isGameOver, recordScore } from '../core/gameState';
-import { scoreDice } from '../core/scoring';
+import {
+  createScorecard,
+  isCategoryFilled,
+  isGameOver,
+  recordMasterYachtBonus,
+  recordScore,
+} from '../core/gameState';
+import { isFiveOfAKind, scoreDice } from '../core/scoring';
 import type { Advisor } from '../engine/advisor';
 import { createAdvisor } from '../engine/advisor';
 import { loadValueTable } from '../engine/valueTable';
@@ -31,6 +38,8 @@ interface SoloSnapshot {
 }
 
 interface GameStore {
+  /** 현재 룰 프리셋 식별자(기본/추가). */
+  rulePreset: RulePresetId;
   rules: RuleConfig;
   card: Scorecard;
   dice: number[];
@@ -39,6 +48,8 @@ interface GameStore {
   rollsUsed: number;
   settings: Settings;
   advisor: Advisor | null;
+  /** 현재 로드된 advisor 가 어느 프리셋용인지(보드 프리셋과 불일치 시 조언 미사용). */
+  advisorPreset: RulePresetId | null;
   tableStatus: TableStatus;
   /** 게임 종료 결과 팝업 표시 여부. */
   resultOpen: boolean;
@@ -67,6 +78,8 @@ interface GameStore {
   /** 마지막 기록을 취소하고 그 턴 직전 상태로 복원(리더보드 등록 자격 박탈). */
   undo: () => void;
   newGame: () => void;
+  /** 룰 프리셋 변경. 진행 중 변경은 위험하므로 새 게임으로 리셋한다. */
+  setRulePreset: (id: RulePresetId) => void;
   setSettings: (patch: Partial<Settings>) => void;
   setResultOpen: (open: boolean) => void;
   /** 헬퍼 조언이 실제 표시됐음을 기록(useAdvice 가 non-null 일 때 호출). */
@@ -95,16 +108,32 @@ function rollDie(): number {
   return 1 + Math.floor(Math.random() * 6);
 }
 
+const PRESET_KEY = 'yd_rule_preset';
+
+/** 저장된 룰 프리셋을 단일 출처로 되읽음(없거나 불명이면 기본). */
+function getInitialPreset(): RulePresetId {
+  try {
+    const saved = localStorage.getItem(PRESET_KEY);
+    if (saved && saved in RULE_PRESETS) return saved as RulePresetId;
+  } catch {
+    // 저장소 접근 불가 — 기본값 사용.
+  }
+  return DEFAULT_PRESET_ID;
+}
+
 const INITIAL_DICE = [1, 2, 3, 4, 5];
+const INITIAL_PRESET = getInitialPreset();
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  rules: DEFAULT_RULES,
+  rulePreset: INITIAL_PRESET,
+  rules: RULE_PRESETS[INITIAL_PRESET].config,
   card: createScorecard(),
   dice: [...INITIAL_DICE],
   held: Array(DICE_COUNT).fill(false),
   rollsUsed: 0,
   settings: { helperEnabled: false, showProbabilities: true, highlightSuggestion: true },
   advisor: null,
+  advisorPreset: null,
   tableStatus: 'idle',
   resultOpen: false,
   helperUsedThisGame: false,
@@ -127,12 +156,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   loadTable: async () => {
+    const preset = get().rulePreset;
+    if (!RULE_PRESETS[preset].helperSupported) return;
     if (get().tableStatus === 'loading' || get().tableStatus === 'ready') return;
     set({ tableStatus: 'loading' });
     try {
-      const V = await loadValueTable(`${import.meta.env.BASE_URL}V.bin`);
+      const additional = preset === 'additional';
+      const file = additional ? 'V.additional.bin' : 'V.bin';
+      const expected = additional ? STATE_COUNT_ADDITIONAL : STATE_COUNT;
+      const V = await loadValueTable(`${import.meta.env.BASE_URL}${file}`, expected);
       const advisor = createAdvisor(V, get().rules);
-      set({ advisor, tableStatus: 'ready' });
+      set({ advisor, advisorPreset: preset, tableStatus: 'ready' });
     } catch (e) {
       console.error(e);
       set({ tableStatus: 'error' });
@@ -167,8 +201,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   assign: (cat) => {
     const s = get();
     if (s.gameOver() || s.rollsUsed === 0 || isCategoryFilled(s.card, cat)) return;
-    const value = scoreDice(cat, s.dice, s.rules);
-    const card = recordScore(s.card, cat, value);
+    // 요트의 달인: 요트(50)를 이미 기록한 뒤 또 5개 같은 눈이면, 정상 채점 대신
+    // 고른 빈 칸(cat)에 보너스를 적는다(주사위 점수와 무관).
+    const yachtMaster =
+      s.rules.multiYachtBonus &&
+      s.card.scores.yacht === s.rules.yachtScore &&
+      isFiveOfAKind(s.dice);
+    const card = yachtMaster
+      ? recordMasterYachtBonus(s.card, cat)
+      : recordScore(s.card, cat, scoreDice(cat, s.dice, s.rules));
     set({
       card,
       dice: [...INITIAL_DICE],
@@ -212,9 +253,45 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
+  setRulePreset: (id) => {
+    if (get().rulePreset === id) return;
+    const preset = RULE_PRESETS[id];
+    try {
+      localStorage.setItem(PRESET_KEY, id);
+    } catch {
+      // 저장 불가 — 적용만 하고 영속화는 생략.
+    }
+    // 룰이 바뀌면 진행 중 점수표가 어긋나므로 새 게임으로 시작한다.
+    set({
+      rulePreset: id,
+      rules: preset.config,
+      card: createScorecard(),
+      dice: [...INITIAL_DICE],
+      held: Array(DICE_COUNT).fill(false),
+      rollsUsed: 0,
+      resultOpen: false,
+      helperUsedThisGame: false,
+      history: [],
+      undoUsedThisGame: false,
+      scoreSubmittedThisGame: false,
+      // 프리셋이 바뀌면 이전 테이블/advisor 는 무효 → 리셋해 새 프리셋용으로 다시 로드.
+      advisor: null,
+      advisorPreset: null,
+      tableStatus: 'idle',
+      // 헬퍼 미지원 프리셋이면 토글을 끈다(현재는 둘 다 지원이라 사실상 그대로 유지).
+      settings: preset.helperSupported
+        ? get().settings
+        : { ...get().settings, helperEnabled: false },
+    });
+  },
+
   setSettings: (patch) => {
     set({ settings: { ...get().settings, ...patch } });
-    if (patch.helperEnabled && get().tableStatus === 'idle') {
+    if (
+      patch.helperEnabled &&
+      get().tableStatus === 'idle' &&
+      RULE_PRESETS[get().rulePreset].helperSupported
+    ) {
       void get().loadTable();
     }
   },

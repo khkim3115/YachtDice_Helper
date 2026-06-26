@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_RULES } from '../core/rules';
+import { RULE_PRESETS } from '../core/rules';
 import { grandTotal } from '../core/gameState';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
@@ -16,11 +16,12 @@ export function MpGameOver() {
   const [submitted, setSubmitted] = useState(false);
   if (!room) return null;
 
+  const rules = RULE_PRESETS[room.rulePreset].config;
   const ranked = players
-    .map((p) => ({ p, total: grandTotal(p.scorecard, DEFAULT_RULES) }))
+    .map((p) => ({ p, total: grandTotal(p.scorecard, rules) }))
     .sort((a, b) => b.total - a.total);
 
-  // 헬퍼 비허용 방에서만 내 점수를 리더보드에 등록할 수 있다.
+  // 헬퍼 비허용 방에서만 내 점수를 리더보드에 등록(규칙별 보드로 분리 — PR3).
   const me = ranked.find((r) => r.p.userId === myUserId);
   const canRegister = !room.helperAllowed && !!me;
 
@@ -61,7 +62,7 @@ export function MpGameOver() {
             <div className="lb-registered">✓ 리더보드 등록 완료</div>
           ) : (
             <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
-              🏆 리더보드 등록 (내 점수 {me.total})
+              🏆 리더보드 등록 (내 점수 {me!.total})
             </button>
           ))}
 
@@ -74,6 +75,7 @@ export function MpGameOver() {
         <SubmitScoreModal
           score={me.total}
           mode="multi"
+          rulePreset={room.rulePreset}
           defaultName={me.p.displayName}
           onClose={() => setSubmitOpen(false)}
           onSubmitted={() => setSubmitted(true)}

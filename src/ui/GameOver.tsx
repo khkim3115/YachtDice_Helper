@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { CATEGORY_IDS, CATEGORY_META } from '../core/rules';
 import type { CategoryId } from '../core/rules';
-import { grandTotal, lowerSubtotal, upperBonus, upperSubtotal } from '../core/gameState';
+import {
+  grandTotal,
+  isMasterCell,
+  lowerFourBonus,
+  lowerSubtotal,
+  masterBonusTotal,
+  upperBonus,
+  upperSubtotal,
+} from '../core/gameState';
 import { useGameStore } from '../store/gameStore';
 import { SubmitScoreModal } from './SubmitScoreModal';
 
@@ -13,6 +21,7 @@ const LOWER_IDS = CATEGORY_IDS.filter((id) => CATEGORY_META[id].section === 'low
 export function GameOver() {
   const card = useGameStore((s) => s.card);
   const rules = useGameStore((s) => s.rules);
+  const rulePreset = useGameStore((s) => s.rulePreset);
   const newGame = useGameStore((s) => s.newGame);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const helperUsedThisGame = useGameStore((s) => s.helperUsedThisGame);
@@ -25,19 +34,28 @@ export function GameOver() {
   const sub = upperSubtotal(card);
   const bonus = upperBonus(card, rules);
   const lower = lowerSubtotal(card);
+  const masterBonus = masterBonusTotal(card, rules);
+  const lowerFour = lowerFourBonus(card, rules);
+  // 추가 룰 게임은 최적 평균(기본 룰 전제)과 비교하지 않는다.
+  const isAdditional = rules.multiYachtBonus || rules.lowerFourBonus;
 
   const diff = total - OPTIMAL_AVG;
-  const compare =
-    diff >= 0
+  const compare = isAdditional
+    ? '추가 룰 게임'
+    : diff >= 0
       ? `최적 평균(약 ${OPTIMAL_AVG}점)보다 +${diff}점! 🎉`
       : `최적 평균(약 ${OPTIMAL_AVG}점)까지 ${-diff}점`;
 
   const Row = ({ id }: { id: CategoryId }) => {
-    const score = card.scores[id] ?? 0;
+    const master = isMasterCell(card, id);
+    const score = master ? rules.multiYachtBonusAmount : card.scores[id] ?? 0;
     return (
       <div className="go-row">
-        <span className="go-cat">{CATEGORY_META[id].ko}</span>
-        <b className={score === 0 ? 'zero' : ''}>{score}</b>
+        <span className="go-cat">
+          {CATEGORY_META[id].ko}
+          {master && <span className="go-master"> 달인</span>}
+        </span>
+        <b className={!master && score === 0 ? 'zero' : ''}>{score}</b>
       </div>
     );
   };
@@ -76,13 +94,30 @@ export function GameOver() {
           </div>
         </div>
 
+        {(masterBonus > 0 || lowerFour > 0) && (
+          <div className="go-extra">
+            {masterBonus > 0 && (
+              <div className="go-row bonus">
+                <span className="go-cat">요트의 달인</span>
+                <b style={{ color: 'var(--gold)' }}>+{masterBonus}</b>
+              </div>
+            )}
+            {lowerFour > 0 && (
+              <div className="go-row bonus">
+                <span className="go-cat">요트도 포커처럼</span>
+                <b style={{ color: 'var(--good)' }}>+{lowerFour}</b>
+              </div>
+            )}
+          </div>
+        )}
+
         {!helperUsedThisGame &&
           !undoUsedThisGame &&
           (scoreSubmittedThisGame ? (
             <div className="lb-registered">✓ 리더보드 등록 완료</div>
           ) : (
             <button className="lb-register-btn" onClick={() => setSubmitOpen(true)}>
-              🏆 리더보드 등록
+              🏆 리더보드 등록{isAdditional ? ' · 추가 룰' : ''}
             </button>
           ))}
 
@@ -100,6 +135,7 @@ export function GameOver() {
         <SubmitScoreModal
           score={total}
           mode="solo"
+          rulePreset={rulePreset}
           defaultName={savedName()}
           onClose={() => setSubmitOpen(false)}
           onSubmitted={markScoreSubmitted}

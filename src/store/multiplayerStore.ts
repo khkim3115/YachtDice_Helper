@@ -4,8 +4,10 @@
 import { create } from 'zustand';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ensureAnonSession } from '../lib/supabase';
-import type { CategoryId } from '../core/rules';
+import type { CategoryId, RulePresetId } from '../core/rules';
 import type { Scorecard } from '../core/gameState';
+import { appendCapped, sanitizeChatText } from '../lib/chat';
+import type { ChatMessage } from '../lib/chat';
 
 export type RoomStatus = 'lobby' | 'playing' | 'finished' | 'abandoned';
 
@@ -14,6 +16,8 @@ export interface MpRoom {
   code: string;
   status: RoomStatus;
   helperAllowed: boolean;
+  /** 룰 프리셋(기본/추가). 방 만들 때 결정, 게임 중 불변. */
+  rulePreset: RulePresetId;
   maxPlayers: number;
   hostId: string;
   currentSeat: number | null;
@@ -39,11 +43,22 @@ interface MpState {
   room: MpRoom | null;
   players: MpPlayer[];
   myUserId: string | null;
+  /** 점수표로 보고 있는 좌석(로컬 UI 전용). null = 현재 차례 따라가기. */
+  selectedSeat: number | null;
   busy: boolean;
   error: string | null;
   channel: RealtimeChannel | null;
+  /** 방 채팅(broadcast, 최근 CHAT_KEEP개만 유지). 방을 나가면 비워진다. */
+  messages: ChatMessage[];
 
-  createRoom: (name: string, helperAllowed: boolean, maxPlayers: number) => Promise<boolean>;
+  selectPlayer: (seat: number | null) => void;
+  sendChat: (text: string) => void;
+  createRoom: (
+    name: string,
+    helperAllowed: boolean,
+    maxPlayers: number,
+    rulePreset: RulePresetId,
+  ) => Promise<boolean>;
   joinRoom: (code: string, name: string) => Promise<boolean>;
   startGame: () => Promise<void>;
   rollDice: () => Promise<void>;
@@ -62,6 +77,7 @@ function mapRoom(r: any): MpRoom {
     code: r.code,
     status: r.status,
     helperAllowed: !!r.helper_allowed,
+    rulePreset: (r.rule_preset_id ?? 'default') as RulePresetId,
     maxPlayers: r.max_players,
     hostId: r.host_id,
     currentSeat: r.current_seat,
@@ -97,6 +113,7 @@ const ERROR_KO: [string, string][] = [
   ['not your turn', '당신의 차례가 아닙니다.'],
   ['display name required', '닉네임을 입력하세요.'],
   ['category already filled', '이미 기록된 칸입니다.'],
+  ['invalid rule preset', '알 수 없는 규칙입니다.'],
 ];
 
 function humanError(e: unknown): string {
@@ -109,11 +126,29 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
   room: null,
   players: [],
   myUserId: null,
+  selectedSeat: null,
   busy: false,
   error: null,
   channel: null,
+  messages: [],
 
-  createRoom: async (name, helperAllowed, maxPlayers) => {
+  selectPlayer: (seat) => set({ selectedSeat: seat }),
+
+  // 채팅 전송: 정리(공백/빈/200자) → 내 표시명 결정 → 같은 채널에 broadcast.
+  // self:true 구독이라 내 메시지도 동일 경로로 되돌아와 화면에 표시된다.
+  sendChat: (text) => {
+    const clean = sanitizeChatText(text);
+    if (!clean) return;
+    const { channel, myUserId, players } = get();
+    if (!channel || !myUserId) return;
+    const me = players.find((p) => p.userId === myUserId);
+    const displayName =
+      me?.displayName || localStorage.getItem('yd_mp_name') || '익명';
+    const payload: ChatMessage = { userId: myUserId, displayName, text: clean, ts: Date.now() };
+    void channel.send({ type: 'broadcast', event: 'chat', payload });
+  },
+
+  createRoom: async (name, helperAllowed, maxPlayers, rulePreset) => {
     set({ busy: true, error: null });
     try {
       const uid = await ensureAnonSession();
@@ -122,6 +157,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
         p_display_name: name,
         p_helper_allowed: helperAllowed,
         p_max_players: maxPlayers,
+        p_rule_preset: rulePreset,
       });
       if (error) throw error;
       const roomId = (data as { room_id: string }).room_id;
@@ -194,7 +230,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
     if (room) await supabase.rpc('leave_room', { p_room: room.id }).then(undefined, () => {});
     if (channel) void supabase.removeChannel(channel);
     localStorage.removeItem('yd_mp_code');
-    set({ room: null, players: [], channel: null, error: null });
+    set({ room: null, players: [], channel: null, error: null, selectedSeat: null, messages: [] });
   },
 
   clearError: () => set({ error: null }),
@@ -202,8 +238,14 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
   subscribeRoom: (roomId) => {
     const prev = get().channel;
     if (prev) void supabase.removeChannel(prev);
+    // 새 방 구독이면 이전 방 채팅은 비운다.
+    set({ messages: [] });
     const ch = supabase
-      .channel(`room:${roomId}`)
+      // self:true → 내가 보낸 메시지도 echo 되어 동일 경로로 표시(데스크톱과 형식 동일).
+      .channel(`room:${roomId}`, { config: { broadcast: { self: true } } })
+      .on('broadcast', { event: 'chat' }, ({ payload }) => {
+        set((s) => ({ messages: appendCapped(s.messages, payload as ChatMessage) }));
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { RULE_PRESETS } from '../core/rules';
+import type { RulePresetId } from '../core/rules';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
@@ -6,6 +8,7 @@ import { DownloadCards } from './DownloadCards';
 import { Header } from './Header';
 
 const MAX_OPTIONS = [2, 3, 4];
+const PRESET_OPTIONS: RulePresetId[] = ['default', 'additional'];
 
 export function Home() {
   const setScreen = useAppStore((s) => s.setScreen);
@@ -18,7 +21,12 @@ export function Home() {
   const [name, setName] = useState(() => localStorage.getItem('yd_mp_name') ?? '');
   const [helperAllowed, setHelperAllowed] = useState(false);
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [rulePreset, setRulePreset] = useState<RulePresetId>('default');
   const [code, setCode] = useState('');
+
+  // 멀티 추가 룰 방은 서버가 helper_allowed=false 를 강제(별도 이슈) → 토글은 기본 룰에서만.
+  const mpHelperSelectable = rulePreset === 'default';
+  const helperOn = helperAllowed && mpHelperSelectable;
 
   const nameOk = name.trim().length > 0;
 
@@ -29,7 +37,7 @@ export function Home() {
   async function onCreate() {
     if (!nameOk || busy) return;
     rememberName();
-    const ok = await createRoom(name.trim(), helperAllowed, maxPlayers);
+    const ok = await createRoom(name.trim(), helperOn, maxPlayers, rulePreset);
     if (ok) setScreen('lobby');
   }
 
@@ -90,6 +98,20 @@ export function Home() {
                 <div className="mp-card">
                   <h3>방 만들기</h3>
                   <div className="mp-row">
+                    <span>규칙</span>
+                    <div className="seg">
+                      {PRESET_OPTIONS.map((id) => (
+                        <button
+                          key={id}
+                          className={rulePreset === id ? 'on' : ''}
+                          onClick={() => setRulePreset(id)}
+                        >
+                          {RULE_PRESETS[id].ko}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mp-row">
                     <span>인원</span>
                     <div className="seg">
                       {MAX_OPTIONS.map((n) => (
@@ -106,12 +128,17 @@ export function Home() {
                   <div className="mp-row">
                     <span>헬퍼 허용</span>
                     <button
-                      className={`switch ${helperAllowed ? 'on' : ''}`}
+                      className={`switch ${helperOn ? 'on' : ''}`}
                       role="switch"
-                      aria-checked={helperAllowed}
-                      onClick={() => setHelperAllowed((v) => !v)}
+                      aria-checked={helperOn}
+                      aria-disabled={!mpHelperSelectable}
+                      disabled={!mpHelperSelectable}
+                      onClick={() => mpHelperSelectable && setHelperAllowed((v) => !v)}
                     />
                   </div>
+                  {!mpHelperSelectable && (
+                    <div className="mp-note">멀티 추가 룰 방에서는 헬퍼를 사용할 수 없습니다.</div>
+                  )}
                   <button className="mp-primary" disabled={!nameOk || busy} onClick={onCreate}>
                     방 만들기
                   </button>

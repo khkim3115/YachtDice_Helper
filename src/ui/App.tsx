@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { RULE_PRESETS } from '../core/rules';
 import { grandTotal } from '../core/gameState';
 import { useGameStore } from '../store/gameStore';
 import { useAdvice } from '../store/useAdvice';
@@ -12,7 +13,9 @@ import { PwaStatus } from './PwaStatus';
 export default function App() {
   const card = useGameStore((s) => s.card);
   const rules = useGameStore((s) => s.rules);
-  const helperEnabled = useGameStore((s) => s.settings.helperEnabled);
+  const rulePreset = useGameStore((s) => s.rulePreset);
+  const helperSupported = RULE_PRESETS[rulePreset].helperSupported;
+  const helperEnabled = useGameStore((s) => s.settings.helperEnabled) && helperSupported;
   const loadTable = useGameStore((s) => s.loadTable);
   const gameOver = useGameStore((s) => s.gameOver());
   const resultOpen = useGameStore((s) => s.resultOpen);
@@ -27,10 +30,10 @@ export default function App() {
     if (advice) markHelperUsed();
   }, [advice, markHelperUsed]);
 
-  // 헬퍼 데이터는 백그라운드로 미리 받아둔다(토글 시 즉시 동작).
+  // 헬퍼 데이터는 백그라운드로 미리 받아둔다(토글 시 즉시 동작). 프리셋이 바뀌면 다시 로드.
   useEffect(() => {
-    void loadTable();
-  }, [loadTable]);
+    if (helperSupported) void loadTable();
+  }, [loadTable, helperSupported, rulePreset]);
 
   return (
     <div className="app">

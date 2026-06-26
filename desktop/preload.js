@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld('yd', {
   onTheme: (cb) => ipcRenderer.on('yd-theme', (_e, mode) => cb(mode)),
   // 렌더러의 ☀️/🌙 토글을 메인에 전달(settings.json 영속화).
   setTheme: (mode) => ipcRenderer.send('yd-set-theme', mode === 'light' ? 'light' : 'dark'),
+  // 투명도: 메인이 보낸 초기/저장값을 렌더러가 구독(슬라이더 복원). 값은 30~100 정수.
+  onOpacity: (cb) => ipcRenderer.on('yd-opacity', (_e, value) => cb(value)),
+  // 슬라이더 조작을 메인에 전달. 드래그 중(persist=false)엔 실시간 적용만, 끝(persist=true)에만 저장.
+  setOpacity: (value, persist) => ipcRenderer.send('yd-set-opacity', { value, persist: !!persist }),
 });

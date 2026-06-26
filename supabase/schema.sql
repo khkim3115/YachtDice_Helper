@@ -17,6 +17,8 @@ create table public.rooms (
   code            text not null unique,
   status          room_status not null default 'lobby',
   helper_allowed  boolean not null default false,
+  -- 룰 프리셋(기본/추가). 추가 룰은 요트의 달인·요트도 포커처럼 보너스를 서버에서 강제.
+  rule_preset_id  text not null default 'default' check (rule_preset_id in ('default','additional')),
   max_players     int not null default 4 check (max_players between 2 and 4),
   host_id         uuid not null,
   current_seat    int,
@@ -108,16 +110,30 @@ begin
   end;
 end $$;
 
-create or replace function public.scorecard_total(sc jsonb)
+-- 카드 총점. 추가 룰('additional')이면 보너스를 더한다(src/core/gameState.grandTotal 과 동일):
+--  · 요트의 달인: masterCells(보너스 칸) 1개당 +100. 상단 소계·하단4종 판정엔 미포함(scores 밖).
+--  · 요트도 포커처럼: 하단 4종(포카드·풀하우스·스몰·라지)이 모두 실제 조합(>0)이면 +50.
+create or replace function public.scorecard_total(sc jsonb, p_rule_preset text default 'default')
 returns int language plpgsql immutable set search_path = public, extensions as $$
 declare
   upper_cats text[] := array['ones','twos','threes','fours','fives','sixes'];
   lower_cats text[] := array['choice','fourKind','fullHouse','smallStraight','largeStraight','yacht'];
-  c text; upper_sum int := 0; lower_sum int := 0;
+  c text; upper_sum int := 0; lower_sum int := 0; total int;
+  master_n int; lower_four_done boolean;
 begin
   foreach c in array upper_cats loop upper_sum := upper_sum + coalesce((sc->'scores'->>c)::int, 0); end loop;
   foreach c in array lower_cats loop lower_sum := lower_sum + coalesce((sc->'scores'->>c)::int, 0); end loop;
-  return upper_sum + (case when upper_sum >= 63 then 35 else 0 end) + lower_sum;
+  total := upper_sum + (case when upper_sum >= 63 then 35 else 0 end) + lower_sum;
+  if p_rule_preset = 'additional' then
+    master_n := coalesce(jsonb_array_length(sc->'masterCells'), 0);
+    lower_four_done :=
+         coalesce((sc->'scores'->>'fourKind')::int, 0)      > 0
+     and coalesce((sc->'scores'->>'fullHouse')::int, 0)      > 0
+     and coalesce((sc->'scores'->>'smallStraight')::int, 0)  > 0
+     and coalesce((sc->'scores'->>'largeStraight')::int, 0)  > 0;
+    total := total + master_n * 100 + (case when lower_four_done then 50 else 0 end);
+  end if;
+  return total;
 end $$;
 
 create or replace function public.roll_n_dice(n int)
@@ -150,15 +166,16 @@ end $$;
 
 create or replace function public._finish_game(p_room uuid)
 returns void language plpgsql security definer set search_path = public as $$
-declare maxtotal int; winners int; wseat int;
+declare maxtotal int; winners int; wseat int; preset text;
 begin
-  select max(public.scorecard_total(scorecard)) into maxtotal
+  select rule_preset_id into preset from public.rooms where id = p_room;
+  select max(public.scorecard_total(scorecard, preset)) into maxtotal
     from public.room_players where room_id = p_room;
   select count(*) into winners
-    from public.room_players where room_id = p_room and public.scorecard_total(scorecard) = maxtotal;
+    from public.room_players where room_id = p_room and public.scorecard_total(scorecard, preset) = maxtotal;
   if winners = 1 then
     select seat into wseat
-      from public.room_players where room_id = p_room and public.scorecard_total(scorecard) = maxtotal
+      from public.room_players where room_id = p_room and public.scorecard_total(scorecard, preset) = maxtotal
       limit 1;
     update public.rooms set status='finished', winner_seat = wseat, is_tie = false,
       current_seat = null, dice='{}', held='{}', rolls_used = 0 where id = p_room;
@@ -172,15 +189,35 @@ end $$;
 create or replace function public._apply_assignment(p_room uuid, p_category text)
 returns void language plpgsql security definer set search_path = public as $$
 declare r public.rooms; pl public.room_players; val int; next_seat int; new_round int;
+  yacht_master boolean;
 begin
   select * into r from public.rooms where id = p_room;
   select * into pl from public.room_players where room_id = r.id and seat = r.current_seat;
-  if pl.scorecard->'scores' ? p_category then raise exception 'category already filled'; end if;
-  val := public.score_category(p_category, r.dice);
-  update public.room_players
-    set scorecard = jsonb_set(scorecard, array['scores', p_category], to_jsonb(val)),
-        last_seen_at = now()
-    where id = pl.id;
+  -- 보너스 칸(masterCells)과 일반 점수 칸 모두에서 빈 칸인지 확인.
+  if (pl.scorecard->'scores' ? p_category)
+     or ((pl.scorecard->'masterCells') ? p_category) then
+    raise exception 'category already filled';
+  end if;
+  -- 요트의 달인: 추가 룰 + 요트(50) 이미 기록 + 최종 주사위가 5개 같은 눈이면,
+  -- p_category 를 정상 채점하지 않고 보너스 칸으로 소비(+100 은 총점 계산에서 가산).
+  yacht_master :=
+        r.rule_preset_id = 'additional'
+    and coalesce((pl.scorecard->'scores'->>'yacht')::int, -1) = 50
+    and (select count(distinct d) from unnest(r.dice) d) = 1;
+  if yacht_master then
+    update public.room_players
+      set scorecard = jsonb_set(
+            scorecard, array['masterCells'],
+            coalesce(scorecard->'masterCells', '[]'::jsonb) || to_jsonb(p_category), true),
+          last_seen_at = now()
+      where id = pl.id;
+  else
+    val := public.score_category(p_category, r.dice);
+    update public.room_players
+      set scorecard = jsonb_set(scorecard, array['scores', p_category], to_jsonb(val)),
+          last_seen_at = now()
+      where id = pl.id;
+  end if;
   select seat into next_seat from public.room_players
     where room_id = r.id and seat > r.current_seat order by seat limit 1;
   if next_seat is null then
@@ -219,20 +256,25 @@ grant  select on public.rooms, public.room_players to authenticated;
 
 -- ── RPC (write 표면 전부) ────────────────────────────────────────────────
 create or replace function public.create_room(
-  p_display_name text, p_helper_allowed boolean default false, p_max_players int default 4)
+  p_display_name text, p_helper_allowed boolean default false, p_max_players int default 4,
+  p_rule_preset text default 'default')
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare uid uuid := auth.uid(); new_id uuid; new_code text;
+declare uid uuid := auth.uid(); new_id uuid; new_code text; preset text; helper boolean;
 begin
   if uid is null then raise exception 'not authenticated'; end if;
   if p_max_players < 2 or p_max_players > 4 then raise exception 'max_players must be 2..4'; end if;
   if char_length(coalesce(p_display_name,'')) = 0 then raise exception 'display name required'; end if;
+  preset := coalesce(p_rule_preset, 'default');
+  if preset not in ('default','additional') then raise exception 'invalid rule preset'; end if;
+  -- 추가 룰은 헬퍼(최적 EV)를 지원하지 않으므로 강제로 끈다.
+  helper := case when preset = 'additional' then false else coalesce(p_helper_allowed, false) end;
   new_code := public.generate_unique_room_code();
-  insert into public.rooms(code, status, helper_allowed, max_players, host_id)
-    values (new_code, 'lobby', coalesce(p_helper_allowed,false), p_max_players, uid)
+  insert into public.rooms(code, status, helper_allowed, rule_preset_id, max_players, host_id)
+    values (new_code, 'lobby', helper, preset, p_max_players, uid)
     returning id into new_id;
   insert into public.room_players(room_id, user_id, seat, display_name, is_host)
     values (new_id, uid, 0, left(p_display_name,24), true);
-  return jsonb_build_object('room_id', new_id, 'code', new_code, 'seat', 0);
+  return jsonb_build_object('room_id', new_id, 'code', new_code, 'seat', 0, 'rule_preset', preset);
 end $$;
 
 create or replace function public.join_room(p_code text, p_display_name text)
@@ -374,7 +416,7 @@ begin
   end if;
   select * into pl from public.room_players where room_id = r.id and seat = r.current_seat;
   foreach cat in array cats loop
-    if not (pl.scorecard->'scores' ? cat) then
+    if not (pl.scorecard->'scores' ? cat) and not ((pl.scorecard->'masterCells') ? cat) then
       sc := public.score_category(cat, r.dice);
       if chosen is null or sc < chosen_score then chosen := cat; chosen_score := sc; end if;
     end if;
@@ -393,19 +435,21 @@ begin
     or (status = 'playing'   and updated_at < now() - interval '6 hours');
 end $$;
 
--- ── 리더보드(Top10 글로벌 랭킹) ──────────────────────────────────────────
--- 솔로/멀티/데스크톱 공용 단일 보드. 읽기는 공개(select), 쓰기는 submit_score RPC 만.
--- 룸과 달리 솔로·데스크톱 점수는 서버 검증이 불가 → 클라이언트 신뢰 기반(캐주얼).
--- score CHECK 로 비현실적 값만 차단(기본 룰 실제 최대 ≈ 323).
+-- ── 리더보드(규칙별 Top10 랭킹) ──────────────────────────────────────────
+-- 규칙 프리셋(기본/추가)별로 분리된 보드. mode(solo/multi/desktop)는 배지로만 표시.
+-- 읽기는 공개(select), 쓰기는 submit_score RPC 만. 솔로·데스크톱은 서버 검증 불가(캐주얼).
+-- score CHECK: 추가 룰은 요트의 달인 보너스로 기본 룰보다 크게 높아질 수 있어 상한 2000.
 create table public.leaderboard (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid,                                    -- 익명(미로그인) 호출 시 null 허용
-  nickname    text not null check (char_length(nickname) between 1 and 24),
-  score       int  not null check (score between 0 and 1000),
-  mode        text not null check (mode in ('solo','multi','desktop')),
-  created_at  timestamptz not null default now()
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid,                                -- 익명(미로그인) 호출 시 null 허용
+  nickname        text not null check (char_length(nickname) between 1 and 24),
+  score           int  not null check (score between 0 and 2000),
+  mode            text not null check (mode in ('solo','multi','desktop')),
+  rule_preset_id  text not null default 'default' check (rule_preset_id in ('default','additional')),
+  created_at      timestamptz not null default now()
 );
-create index leaderboard_rank_idx on public.leaderboard (score desc, created_at asc);
+-- 규칙별 상위 N 조회/정리를 위해 rule_preset_id 로 파티션.
+create index leaderboard_rank_idx on public.leaderboard (rule_preset_id, score desc, created_at asc);
 
 alter table public.leaderboard enable row level security;
 create policy leaderboard_select_public on public.leaderboard
@@ -413,18 +457,26 @@ create policy leaderboard_select_public on public.leaderboard
 revoke insert, update, delete on public.leaderboard from anon, authenticated;
 grant  select on public.leaderboard to anon, authenticated;
 
--- 점수 제출 + Top10 초과분 정리(= 10개만 저장). anon/authenticated 모두 호출 가능.
-create or replace function public.submit_score(p_nickname text, p_score int, p_mode text)
+-- 점수 제출 + 규칙별 Top10 초과분 정리. anon/authenticated 모두 호출 가능.
+create or replace function public.submit_score(
+  p_nickname text, p_score int, p_mode text, p_rule_preset text default 'default')
 returns void language plpgsql security definer set search_path = public as $$
+declare preset text;
 begin
   if char_length(coalesce(p_nickname,'')) = 0 then raise exception 'nickname required'; end if;
-  if p_score < 0 or p_score > 1000 then raise exception 'score out of range'; end if;
+  if p_score < 0 or p_score > 2000 then raise exception 'score out of range'; end if;
   if p_mode not in ('solo','multi','desktop') then raise exception 'invalid mode'; end if;
-  insert into public.leaderboard(user_id, nickname, score, mode)
-    values (auth.uid(), left(p_nickname,24), p_score, p_mode);
-  -- 점수 desc, 동점은 먼저 등록한 순(created_at asc)으로 Top10 만 남기고 삭제.
-  delete from public.leaderboard where id not in (
-    select id from public.leaderboard order by score desc, created_at asc limit 10
+  preset := coalesce(p_rule_preset, 'default');
+  if preset not in ('default','additional') then raise exception 'invalid rule preset'; end if;
+  insert into public.leaderboard(user_id, nickname, score, mode, rule_preset_id)
+    values (auth.uid(), left(p_nickname,24), p_score, p_mode, preset);
+  -- 규칙(rule_preset_id)별로 점수 desc·동점 먼저 등록 순(created_at asc) Top10 만 남기고 삭제.
+  delete from public.leaderboard where id in (
+    select id from (
+      select id, row_number() over (
+        partition by rule_preset_id order by score desc, created_at asc
+      ) as rn from public.leaderboard
+    ) t where t.rn > 10
   );
 end $$;
 
@@ -513,7 +565,7 @@ revoke execute on all functions in schema public from anon;
 revoke execute on all functions in schema public from authenticated;
 
 grant execute on function
-  public.create_room(text, boolean, int),
+  public.create_room(text, boolean, int, text),
   public.join_room(text, text),
   public.start_game(uuid),
   public.roll_dice(uuid),
@@ -528,7 +580,7 @@ to authenticated;
 grant execute on function public.is_room_member(uuid) to authenticated;
 
 -- 리더보드 제출: 익명(미로그인) 사용자도 호출 가능(웹/데스크톱 공용).
-grant execute on function public.submit_score(text, int, text) to anon, authenticated;
+grant execute on function public.submit_score(text, int, text, text) to anon, authenticated;
 
 -- 피드백 제출: 함수가 auth.uid() 를 요구하므로, 세션 없는 anon 롤 호출은 'not authenticated' 로 거부된다.
 grant execute on function public.submit_feedback(text, text, text, jsonb, text) to anon, authenticated;

@@ -25,10 +25,16 @@ npm run dist
 > **배포(GitHub Releases)** — 웹 홈의 *앱으로 받기 → 트레이 앱* 버튼은 고정 자산
 > `releases/latest/download/YachtDice-Tray-Setup.exe` 를 가리킵니다([`src/ui/DownloadCards.tsx`](../src/ui/DownloadCards.tsx)).
 >
-> **자동 빌드** — GitHub에서 **릴리스를 publish 하면** [`.github/workflows/desktop-release.yml`](../.github/workflows/desktop-release.yml)
-> 가 `windows-latest` 에서 `npm run dist` 로 설치 파일을 빌드해 **그 릴리스에 자동 첨부**합니다.
-> 따라서 보통은 *릴리스 만들기*만 하면 위 다운로드 링크가 최신본을 받습니다. (수동 빌드는 아래 절차대로 직접
-> 만들어 업로드해도 됩니다. 자산 이름을 바꾸려면 `artifactName` 도 함께 바꿔야 링크가 유지됩니다.)
+> **자동 빌드** — GitHub에서 **릴리스를 publish 하면**(태그 `tray-vX.Y.Z`) [`.github/workflows/desktop-release.yml`](../.github/workflows/desktop-release.yml)
+> 가 `windows-latest` 에서 `npm run dist -- --publish never` 로 설치 파일과 **자동 업데이트 메타데이터
+> (`latest.yml` + `.blockmap`)** 를 빌드해 **그 릴리스에 함께 첨부**합니다(`gh release upload`).
+> 따라서 보통은 *릴리스 만들기*만 하면 위 다운로드 링크가 최신본을 받고, 기존 설치본도 [자동 업데이트](#자동-업데이트)로
+> 신버전을 감지합니다. (수동 빌드는 아래 절차대로 직접 만들어 업로드해도 됩니다. 자산 이름을 바꾸려면
+> `artifactName` 도 함께 바꿔야 링크가 유지됩니다.)
+>
+> `--publish never` 인 이유: 업로드는 `gh` 스텝이 전담합니다. electron-builder 가 직접 publish 하면 기본
+> 태그 규약(`v${version}`)으로 별도 릴리스를 만들어 이 저장소의 `tray-vX.Y.Z` 태그와 충돌하기 때문입니다.
+> `latest.yml` 생성에 필요한 provider 정보는 `package.json` 의 `build.publish`(github) 가 제공합니다.
 
 ## 개발 실행(설치 없이)
 
@@ -43,7 +49,19 @@ npm start      # electron . — 트레이 아이콘 표시(클릭 → 메뉴 →
 - **싱글플레이** — 트레이 위 작은 팝업에서 오프라인 싱글 게임 시작
 - **멀티플레이** — 같은 팝업이 온라인 로비로 전환(방 만들기/참가 → 실시간 대전)
 - **Windows 시작 시 자동 실행** — 부팅 시 트레이 상주 토글
+- **🔄 지금 업데이트 확인** — 즉시 업데이트 확인(라벨로 진행 상태 표시)
+- **📥 업데이트 vX.Y.Z 설치** — 신버전 다운로드가 끝났을 때만 나타나며, 누르면 재시작·설치
 - **종료** — 앱 완전 종료
+
+## 자동 업데이트
+설치본은 **GitHub Release 의 신버전을 자동으로 감지·다운로드**합니다([electron-updater](https://www.electron.build/auto-update)).
+시작 직후 1회 + 이후 **1시간 간격**으로 확인하고, 새 버전을 찾으면 **백그라운드로 조용히 내려받습니다**.
+다운로드가 끝나면 트레이 메뉴에 **📥 업데이트 설치** 항목이 생기며, **사용자가 누를 때만** 재시작·설치합니다 —
+멀티 게임 중 방 상태가 갑자기 사라지지 않도록 **자동 재시작은 하지 않습니다**(Windows 토스트도 없음).
+
+- **개발 모드(`npm start`)에선 비활성**입니다 — `app.isPackaged` 가 true 인 설치본에서만 동작합니다.
+- 버전 비교는 `package.json` 의 `version`(semver) 기준이므로, 새 릴리스를 낼 땐 **버전을 반드시 올려야** 합니다.
+- 동작 전제는 릴리스에 `latest.yml` 이 함께 올라가는 것입니다(위 *배포* 참고). 릴리스 태그 규약은 `tray-vX.Y.Z`.
 
 ## 게임 (popup.html)
 최소 요트다이스 — 주사위 5개, 턴당 3회 굴림(보관 토글), 12 카테고리 점수 + 상단
