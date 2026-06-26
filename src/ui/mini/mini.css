@@ -132,3 +132,60 @@
   font-size: 14px;
   border: none;
 }
+.mini-mp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.mini-mp-in {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+.mini-mp-join {
+  display: flex;
+  gap: 4px;
+}
+.mini-mp-code {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+.mini-mp-list,
+.mini-mp-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.mini-mp-scores .cur {
+  color: var(--accent);
+}
+.mini-mp-turn {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.mini-mp-leave {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.mini-mp-err {
+  font-size: 11px;
+  color: var(--bad);
+}
+.mini-mp-wait,
+.mini-mp-result {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}

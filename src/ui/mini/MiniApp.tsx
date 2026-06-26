@@ -3,6 +3,7 @@
 import './mini.css';
 import { useEffect, useRef, useState } from 'react';
 import { MiniHeader } from './MiniHeader';
+import { MiniMultiplayer } from './MiniMultiplayer';
 import { MiniSolo } from './MiniSolo';
 
 export function MiniApp() {
@@ -43,7 +44,7 @@ export function MiniApp() {
       {mode === 'solo' ? (
         <MiniSolo />
       ) : (
-        <div className="mini-mp-stub">멀티는 곧 추가됩니다.</div>
+        <MiniMultiplayer />
       )}
       {blanked && (
         <button className="mini-blank" onClick={() => setBlanked(false)} aria-label="다시 보기">
