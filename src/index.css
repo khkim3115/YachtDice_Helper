@@ -1812,3 +1812,94 @@ button:disabled {
 .pn-close:hover {
   filter: brightness(1.05);
 }
+
+/* ── 피드백 모달 ─────────────────────────────────────── */
+.fb-card {
+  width: min(440px, 92vw);
+}
+.fb-intro {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.fb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.fb-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fb-field {
+  position: relative;
+}
+.fb-textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  min-height: 96px;
+  transition: border-color 0.12s ease;
+}
+.fb-textarea:focus {
+  border-color: var(--accent);
+}
+.fb-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.fb-count {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+/* 허니팟: 화면 밖으로 숨김(레이아웃·접근성 영향 없이 봇만 채우도록). */
+.fb-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.fb-note {
+  margin-top: 4px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+.fb-done {
+  margin: 8px 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.fb-gh {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.fb-gh:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.fb-gh-sub {
+  opacity: 0.7;
+}

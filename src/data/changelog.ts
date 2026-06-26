@@ -31,6 +31,17 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-06-26',
+    title: '피드백 보내기 추가',
+    changes: [
+      {
+        type: 'feature',
+        text: '상단 💬 버튼으로 버그 제보·기능 건의를 보낼 수 있어요. 계정 없이 익명으로 보내져요.',
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-06-24',
     title: '패치노트 화면 추가',

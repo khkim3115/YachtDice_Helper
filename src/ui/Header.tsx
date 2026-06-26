@@ -7,6 +7,7 @@ import { LATEST_VERSION } from '../data/changelog';
 import { SettingsPanel } from './SettingsPanel';
 import { HelpPanel } from './HelpPanel';
 import { PatchNotesModal } from './PatchNotesModal';
+import { FeedbackModal } from './FeedbackModal';
 import { InstallButton } from './InstallButton';
 
 // 패치노트 자동 노출은 페이지 로드당 1회만 평가(화면 전환에 따른 Header 재마운트에도 중복 방지).
@@ -34,6 +35,7 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
   const hasUnseen = seenVersion !== LATEST_VERSION;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // 처음 방문한 사용자에게는 도움말을 한 번 자동으로 띄운다(솔로 화면 한정).
   useEffect(() => {
@@ -104,6 +106,14 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
             📋
             {hasUnseen && <span className="pn-dot" aria-hidden="true" />}
           </button>
+          <button
+            className="help-btn"
+            onClick={() => setFeedbackOpen(true)}
+            aria-label="피드백 보내기"
+            title="피드백 보내기"
+          >
+            💬
+          </button>
           <InstallButton />
           <button className="gear" onClick={() => setSettingsOpen(true)} aria-label="설정">
             ⚙️
@@ -113,6 +123,7 @@ export function Header({ title, subtitle, showHome, autoHelp, children }: Header
 
       {helpOpen && <HelpPanel onClose={handleHelpClose} />}
       {patchNotesOpen && <PatchNotesModal onClose={closePatchNotes} />}
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </>
   );
