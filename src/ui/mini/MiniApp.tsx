@@ -1,5 +1,6 @@
 // 미니 창의 React 루트. 모드(싱글/멀티) 전환 + 빠른숨김(자동 블랭크/Esc) + 닫기.
 // 자기 ownerDocument/defaultView(=PiP 창)에 리스너를 단다(여기서 window 는 여는 탭이므로 사용 금지).
+import './mini.css';
 import { useEffect, useRef, useState } from 'react';
 import { MiniHeader } from './MiniHeader';
 import { MiniSolo } from './MiniSolo';

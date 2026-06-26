@@ -1,0 +1,134 @@
+/* 미니 창(Document PiP) 위장 스타일 — 저채도 '설정 패널' 룩. 색은 index.css 토큰만 사용. */
+.mini-body {
+  margin: 0;
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.mini-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 8px;
+  gap: 8px;
+}
+.mini-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.mini-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.mini-tabs {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+.mini-tabs button {
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.mini-tabs button.on {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.mini-x {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mini-game {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.mini-dice {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+/* 미니 창에서 기존 .die 를 작게 — 핍 레이아웃은 그대로, 한 변만 축소. */
+.mini-dice .die {
+  width: 40px;
+  height: 40px;
+}
+.mini-roll {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mini-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.mini-cat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 12px;
+  color: var(--text);
+}
+.mini-cat .k {
+  color: var(--muted);
+}
+.mini-cat.filled {
+  opacity: 0.55;
+}
+.mini-cat.filled .v {
+  color: var(--faint);
+}
+.mini-foot-total {
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 2px;
+  border-top: 1px solid var(--border);
+}
+.mini-mp-stub {
+  margin: auto;
+  color: var(--faint);
+  font-size: 13px;
+}
+/* 빠른숨김 오버레이 — 전체를 덮는 무채색 '설정' 패널. */
+.mini-blank {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-2);
+  color: var(--faint);
+  font-size: 14px;
+  border: none;
+}
