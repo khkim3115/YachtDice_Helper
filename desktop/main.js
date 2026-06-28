@@ -1,4 +1,4 @@
-// Yacht Dice 트레이 미니 앱 (Electron)
+// Yacht Dice 트레이 미니 앱 (Electron, Windows·macOS)
 // - 트레이 상주. 트레이 클릭 → 작은 네이티브 메뉴. '플레이'를 누르면 트레이 위에 아주 작은
 //   검정 팝업이 떠서 그 안에서 최소 기능 싱글플레이 요트다이스를 한다(자립형 popup.html).
 // - 바깥 클릭 시 팝업 숨김. 부팅 시 자동 실행(첫 실행 기본 ON). 완전 오프라인.
@@ -89,6 +89,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     app.setAppUserModelId('com.khkim.yachtdice');
+    if (process.platform === 'darwin' && app.dock) app.dock.hide(); // 메뉴 막대 전용(독 아이콘 숨김) — 디스크리트
     pinned = readSettings().pinned === true; // 저장된 핀 상태 복원(blur 핸들러가 이 미러를 읽는다)
     setupAutostartDefault();
     createTray();
@@ -125,6 +126,8 @@ function createWindow() {
     },
   });
   Menu.setApplicationMenu(null);
+  // macOS: 전체화면 앱 위에도 뜨도록 더 높은 레벨로(스크린세이버). Windows 는 기본 alwaysOnTop 로 충분.
+  if (process.platform === 'darwin') win.setAlwaysOnTop(true, 'screen-saver');
   win.setOpacity(opacityOf(readSettings()) / 100); // 저장된 투명도 복원
   win.loadFile(POPUP);
 
@@ -305,7 +308,7 @@ function buildTrayTemplate({ autoOn, isLight, pinned, hasCustomPos, update }) {
     { label: '멀티플레이', click: () => showPanel('mp') },
     { type: 'separator' },
     {
-      label: 'Windows 시작 시 자동 실행',
+      label: process.platform === 'darwin' ? '로그인 시 자동 실행' : 'Windows 시작 시 자동 실행',
       type: 'checkbox',
       checked: autoOn,
       click: (item) => setAutostart(item.checked),
@@ -382,7 +385,8 @@ function rebuildTrayMenu() {
     pinned,
     hasCustomPos: !!readSettings().winPos,
     // 설치본에서만 업데이트 항목 노출. app.isPackaged 는 실행 내내 불변이라 init 순서와 무관(=autoUpdaterActive 보다 안전).
-    update: { enabled: app.isPackaged, state: updateState, ready: updateReady, version: pendingUpdateVersion },
+    // 자동 업데이트 항목은 Windows 설치본에서만(mac 은 서명·공증 없어 electron-updater 비활성).
+    update: { enabled: app.isPackaged && process.platform === 'win32', state: updateState, ready: updateReady, version: pendingUpdateVersion },
   });
   tray.setContextMenu(Menu.buildFromTemplate(template));
 }
@@ -410,6 +414,9 @@ function resetPanelPosition() {
 // (멀티 게임 중 자동 재시작으로 방 상태가 유실되는 것을 막기 위해 autoInstallOnAppQuit=false.)
 function setupAutoUpdater() {
   if (!app.isPackaged) return; // app.isPackaged 가 false 면 비활성(개발·스모크 포함) — 설치본에서만 동작
+  // macOS 는 코드서명+공증 없이는 electron-updater 가 동작하지 않는다($99 미사용) → 비활성.
+  // mac 신버전은 수동 .dmg 재다운로드(웹 홈 다운로드 카드)로 안내한다.
+  if (process.platform !== 'win32') return;
   autoUpdaterActive = true;
   autoUpdater.autoDownload = true; // 발견 즉시 백그라운드 다운로드
   autoUpdater.autoInstallOnAppQuit = false; // 설치는 사용자가 "설치"를 누를 때만
@@ -479,7 +486,7 @@ function writeSettings(s) {
   }
 }
 function setAutostart(enabled) {
-  app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });
+  app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: true, args: ['--hidden'] });
   const s = readSettings();
   s.autostartConfigured = true;
   s.autostart = enabled;
@@ -491,7 +498,7 @@ function setupAutostartDefault() {
   if (!app.isPackaged) return;
   const s = readSettings();
   if (!s.autostartConfigured) {
-    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+    app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true, args: ['--hidden'] });
     s.autostartConfigured = true;
     s.autostart = true;
     writeSettings(s);

@@ -31,6 +31,21 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.0',
+    date: '2026-06-28',
+    title: 'macOS 트레이 앱 + 미니 창 색감 정리',
+    changes: [
+      {
+        type: 'feature',
+        text: '🍎 macOS용 트레이 앱(.dmg)이 나왔어요 — Windows판처럼 메뉴 막대에 상주하며 항상 위에 뜨는 작은 패널에서 투명도 조절·무채색 위장으로 플레이. (무료 배포라 첫 실행만 “설정 ▸ 개인정보 보호 및 보안 ▸ 무시하고 열기” 한 번 필요해요.)',
+      },
+      {
+        type: 'improvement',
+        text: '🔳 브라우저 “미니 창”의 색감을 트레이 앱과 같은 무채색 톤으로 맞췄어요 — 화면을 흘깃 봐도 더 안 띄게.',
+      },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-06-26',
     title: '미니 창 모드 — 작게 띄워 플레이',

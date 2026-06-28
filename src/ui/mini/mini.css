@@ -1,11 +1,61 @@
-/* 미니 창(Document PiP) 위장 스타일 — 저채도 '설정 패널' 룩. 색은 index.css 토큰만 사용. */
+/* 미니 창(Document PiP) 위장 스타일 — 트레이 앱(desktop/popup.html)과 동일한 무채색 '설정 패널' 룩.
+   index.css 가 copyStyles 로 통째 복제돼 컬러풀한 토큰(--accent 파랑 등)이 들어오므로, 여기서
+   .mini-body 스코프에 트레이의 회색 팔레트(--m-*)를 정의하고 미니/재사용 <Die> 가 읽는 웹 토큰을
+   그 회색으로 remap 한다. 요소 스코프 커스텀 프로퍼티는 :root 를 이기므로(복제 순서 무관) !important 불필요.
+   (투명도 조절은 PiP 한계로 미지원 — 트레이식 창 투명도는 네이티브 .dmg 트레이 앱에서만 가능.) */
 .mini-body {
+  /* 트레이 무채색 팔레트(값 = desktop/popup.html :root, 다크 기본) */
+  --m-bg: #0b0b0d;
+  --m-panel: #151518;
+  --m-panel2: #1d1d21;
+  --m-panel3: #26262b;
+  --m-line: #2a2a2f;
+  --m-txt: #c6c6cd;
+  --m-mut: #71717a;
+  --m-emph: #d7d7de;
+  --m-hold: #56565f;
+  --m-klabel: #50505a;
+  /* 복제된 index.css 컬러 토큰을 무채색으로 remap — 미니 chrome + 재사용 .die 에 동시 적용 */
+  --bg-2: var(--m-bg);
+  --surface: var(--m-panel);
+  --surface-2: var(--m-panel2);
+  --surface-3: var(--m-panel3);
+  --border: var(--m-line);
+  --text: var(--m-txt);
+  --muted: var(--m-mut);
+  --faint: var(--m-mut);
+  --accent: var(--m-hold);
+  --accent-strong: var(--m-hold);
+  --accent-glow: transparent;
+  --gold: var(--m-hold);
+  --gold-soft: transparent;
+  --gold-ink: var(--m-emph);
+  --good: var(--m-mut);
+  --good-soft: transparent;
+  --bad: var(--m-emph);
+  --die-face: var(--m-panel2);
+  --die-pip: var(--m-emph);
+  --die-pip-hi: var(--m-emph);
   margin: 0;
   background: var(--bg-2);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic',
     sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+/* 라이트 테마 — PiP 문서 <html data-theme='light'> 스냅샷에 맞춰 회색 팔레트만 뒤집는다
+   (위 remap 은 그대로 상속·재해석돼 라이트 회색으로 풀린다). */
+html[data-theme='light'] .mini-body {
+  --m-bg: #f4f4f5;
+  --m-panel: #ffffff;
+  --m-panel2: #f1f1f3;
+  --m-panel3: #e6e6e9;
+  --m-line: #d8d8dd;
+  --m-txt: #3f3f46;
+  --m-mut: #8a8a93;
+  --m-emph: #18181b;
+  --m-hold: #a8a8b0;
+  --m-klabel: #a1a1aa;
 }
 .mini-root {
   position: relative;
@@ -71,6 +121,12 @@
 .mini-dice .die {
   width: 40px;
   height: 40px;
+  /* 트레이처럼 어두운 주사위 — index.css .die 의 흰색 그라데이션(하드코딩 #fff)을 무채색으로 덮는다. */
+  background: var(--m-panel2);
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.mini-dice .die .pip.on {
+  background: var(--m-emph);
 }
 .mini-roll {
   background: var(--surface-2);

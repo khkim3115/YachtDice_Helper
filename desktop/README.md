@@ -1,4 +1,4 @@
-# Yacht Dice — 트레이 미니 앱 (Electron)
+# Yacht Dice — 트레이 미니 앱 (Electron, Windows·macOS)
 
 윈도우 **시스템 트레이(우하단 알림 영역)에 상주**하는 가벼운 Electron 앱.
 트레이 아이콘을 누르면 **작은 네이티브 메뉴**(슬랙/일반 앱처럼)가 뜨고, **싱글플레이**를 누르면
@@ -35,6 +35,36 @@ npm run dist
 > `--publish never` 인 이유: 업로드는 `gh` 스텝이 전담합니다. electron-builder 가 직접 publish 하면 기본
 > 태그 규약(`v${version}`)으로 별도 릴리스를 만들어 이 저장소의 `tray-vX.Y.Z` 태그와 충돌하기 때문입니다.
 > `latest.yml` 생성에 필요한 provider 정보는 `package.json` 의 `build.publish`(github) 가 제공합니다.
+
+## macOS (.dmg) — 무료(미서명) 배포
+
+같은 코드(`main.js`/`popup.html`)를 macOS용 `.dmg` 로도 빌드합니다 — Windows판과 동일한 메뉴 막대 상주·항상 위·
+투명도 조절·무채색 위장. `package.json` 의 `build.mac`(target `dmg`) + `build.dmg.artifactName`(`YachtDice-Tray.dmg`)
+설정으로, [`desktop-release.yml`](../.github/workflows/desktop-release.yml) 의 `build-mac` 잡(`macos-latest`)이
+릴리스에 `.dmg` 를 첨부합니다(GitHub Actions macOS 러너는 공개 레포라 무료 — Mac 없이도 빌드).
+
+플랫폼 차이(모두 `process.platform` 분기, `main.js`):
+- **자동 업데이트 없음** — electron-updater 는 코드 서명+공증이 필요한데 무료 배포라 둘 다 없습니다. `setupAutoUpdater()`
+  가 mac 에선 즉시 반환하고 트레이 메뉴의 업데이트 항목도 숨깁니다. 새 버전은 **웹 홈의 macOS 다운로드 카드**에서
+  `.dmg` 를 다시 받습니다(웹 홈 링크는 `releases/latest/download/YachtDice-Tray.dmg` 고정).
+- **Dock 아이콘 숨김**(`app.dock.hide()`) — 메뉴 막대 전용 디스크리트 앱.
+- **스크린세이버 레벨 alwaysOnTop** — 전체화면 앱 위에도 뜨도록.
+- **로그인 시 자동 실행**(`openAsHidden`), 자동 실행 메뉴 라벨은 OS별로 다릅니다.
+
+> **⚠️ 첫 실행(Gatekeeper)** — Apple Developer 계정($99/년) 없이 배포하므로 정식 서명·공증이 불가합니다. 대신
+> [`scripts/adhoc-sign.cjs`](scripts/adhoc-sign.cjs)(electron-builder `afterPack` 훅)가 **ad-hoc 서명**(`codesign -s -`)
+> 을 적용합니다 — 이게 있어야 사용자가 **설정 ▸ 개인정보 보호 및 보안 ▸ “무시하고 열기”** 로 첫 실행을 허용할 수 있습니다
+> (완전 미서명 앱은 이 설정 목록에 아예 안 떠 그 경로가 막힙니다). macOS Sequoia 15.1 부터 **우클릭 → 열기 우회는
+> 제거**됐습니다. 더 확실한 우회는 터미널 한 줄: `xattr -dr com.apple.quarantine /Applications/'Yacht Dice.app'`.
+> 두 안내 모두 웹 홈 macOS 카드의 *첫 실행 안내*에 노출됩니다.
+
+로컬 빌드(Mac 에서):
+
+```bash
+cd desktop
+npm install
+npm run dist -- --mac        # → desktop/release/YachtDice-Tray.dmg
+```
 
 ## 개발 실행(설치 없이)
 
