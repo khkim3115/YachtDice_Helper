@@ -1,6 +1,6 @@
 {
   "name": "yacht-dice-desktop",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Yacht Dice 트레이 데스크톱 앱 — 웹 빌드(../dist)를 감싸 시스템 트레이에 상주시키는 Electron 래퍼",
   "main": "main.js",
@@ -31,9 +31,20 @@
         "to": "icon.png"
       }
     ],
+    "afterPack": "scripts/adhoc-sign.cjs",
     "win": {
       "target": "nsis",
       "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.games",
+      "darkModeSupport": true
+    },
+    "dmg": {
+      "artifactName": "YachtDice-Tray.dmg",
+      "title": "Yacht Dice"
     },
     "nsis": {
       "artifactName": "YachtDice-Tray-Setup.exe",
