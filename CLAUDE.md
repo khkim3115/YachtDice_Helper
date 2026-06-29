@@ -51,7 +51,7 @@ src/core/      Pure game logic, UI-agnostic, the test target (rules, dice, scori
 src/engine/    Pure helper engine, UI-agnostic (advisor, withinTurnDP, optimalLeaf, valueTable, probability, simulate)
 src/store/     Zustand stores + React hooks — the only stateful glue between engine and UI
 src/ui/        React components (presentational; pull state from stores)
-src/lib/       Supabase client + leaderboard API
+src/lib/       Supabase client + leaderboard·chat·feedback API
 src/precompute/  Node-only V.bin builder
 ```
 
