@@ -7,8 +7,8 @@
 
 🔗 **라이브 데모**: <https://khkim3115.github.io/YachtDice_Helper/>
 
-React + Vite + TypeScript. 헬퍼 엔진은 Verhoeff 2단계 동적계획을 사용하며,
-가치 함수를 오프라인에서 사전계산해(~1MB) 브라우저에서는 매 결정마다 가벼운 턴 내부 DP만 돌립니다.
+React + Vite + TypeScript. 헬퍼 엔진은 후방귀납(backward induction) 기반 2단계 동적계획을 사용하며,
+가치 함수를 오프라인에서 사전계산해(기본 룰셋 ~1MB, 추가 룰셋 ~4MB) 브라우저에서는 매 결정마다 가벼운 턴 내부 DP만 돌립니다.
 
 ## 실행
 
@@ -20,13 +20,14 @@ npm run dev        # http://localhost:5173
 > 헬퍼용 가치 테이블 `public/V.bin` 은 저장소에 포함되어 있습니다. 없거나 룰을 바꿨다면 재생성하세요:
 >
 > ```bash
-> npm run build:table   # 약 10초, public/V.bin 생성
+> npm run build:table              # 약 10초, public/V.bin 생성 (기본 룰셋)
+> npm run build:table:additional   # 약 65~75초, public/V.additional.bin 생성 (추가 룰셋)
 > ```
 
 빌드 / 미리보기 / 테스트:
 
 ```bash
-npm run build      # prebuild 로 V.bin 재생성 후 타입체크 + vite build → dist/
+npm run build      # prebuild 로 V.bin·V.additional.bin 재생성 후 타입체크 + vite build → dist/
 npm run preview
 npm test           # vitest (채점·확률·솔버 정합성)
 ```
@@ -40,7 +41,7 @@ npm test           # vitest (채점·확률·솔버 정합성)
 ## 🌐 온라인 멀티플레이 (방 + 초대코드)
 
 홈 화면에서 **방을 만들고 초대코드**로 친구를 초대해 **턴제 경쟁**(각자 점수판, 차례대로 굴리고 카테고리 선택,
-12라운드 후 최고점 승리)을 즐길 수 있습니다. 최대 4명, 방장이 헬퍼 허용 여부를 선택합니다.
+12라운드 후 최고점 승리)을 즐길 수 있습니다. 최대 4명, 방장이 **규칙(기본/추가)과 헬퍼 허용 여부**를 선택합니다.
 
 정적 프론트엔드(GitHub Pages)는 그대로 두고, 실시간 동기화·방 관리는 **Supabase**(Postgres + Realtime + 익명 로그인)가
 담당합니다. 서버가 권위(주사위는 서버 RNG, 모든 변경은 `SECURITY DEFINER` RPC, 클라이언트 직접 쓰기 차단 + RLS)를 가집니다.
@@ -66,7 +67,7 @@ VITE_SUPABASE_ANON_KEY=<anon public key>
 
 ## 🏆 리더보드 (Top 10)
 
-홈 화면의 **리더보드** 버튼으로 진입합니다. 솔로·멀티·데스크톱(트레이 앱)을 아우르는 **통합 단일 Top 10**
+홈 화면의 **리더보드** 버튼으로 진입합니다. **기본 룰 / 추가 룰 탭**으로 나뉜 Top 10(각 탭은 솔로·멀티·데스크톱(트레이 앱)을 아우름)
 이며, 각 기록 옆 **모드 배지(솔로/멀티/데스크톱)** 로 출처를 구분합니다.
 **헬퍼를 쓰지 않고 달성한 점수만** 등록 대상입니다(솔로/멀티 게임 종료 화면에서 닉네임과 함께 등록).
 
@@ -101,15 +102,19 @@ npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, fa
 
 ## 📥 앱으로 받기 (홈 다운로드 카드)
 
-홈 화면 하단의 **"앱으로 받기"** 섹션([`src/ui/DownloadCards.tsx`](src/ui/DownloadCards.tsx))에서 두 가지로 받습니다.
+홈 화면 하단의 **"앱으로 받기"** 섹션([`src/ui/DownloadCards.tsx`](src/ui/DownloadCards.tsx))에서 다음과 같이 받습니다.
 
 - **데스크탑 앱 (PWA)** — `⬇ 앱 설치` 버튼으로 브라우저에 설치(위 PWA 섹션과 동일, 작업표시줄/시작 메뉴에서 실행).
   설치 프롬프트를 쓸 수 없는 브라우저에서는 주소창 설치 아이콘(⊕)/메뉴 사용을 안내합니다.
 - **트레이 앱 (Windows)** — `⬇ 다운로드` 버튼이 시스템 트레이에 상주하는 미니 Electron 버전 설치파일을 받습니다.
   빌드·실행·배포는 [`desktop/README.md`](desktop/README.md) 참고.
+- **트레이 앱 (macOS)** — `⬇ 다운로드` 버튼으로 메뉴 막대에 상주하는 `.dmg` 버전을 받습니다(Windows판과 동일한 항상 위·투명도 조절·무채색 위장).
+  무료 배포라 코드 서명이 없어 첫 실행만 *설정 ▸ 개인정보 보호 및 보안 ▸ 무시하고 열기* 한 번이 필요합니다.
+- **미니 창 (무설치, Chromium 계열)** — 게임 화면 헤더의 🔳 미니 창 버튼으로 항상 위에 뜨는 작은 저채도 패널(Document PiP)을
+  설치 없이 바로 띄웁니다. Windows·macOS·Linux 의 Chrome·Edge 지원(Safari·Firefox 미지원).
 
-> 트레이 설치파일은 GitHub Releases 의 고정 자산 이름 **`YachtDice-Tray-Setup.exe`**
-> (`releases/latest/download/YachtDice-Tray-Setup.exe`)로 받습니다([`DownloadCards.tsx`](src/ui/DownloadCards.tsx) 의 `TRAY_EXE_URL`).
+> 트레이 설치파일은 GitHub Releases 의 고정 자산 이름 — Windows **`YachtDice-Tray-Setup.exe`**(`TRAY_EXE_URL`),
+> macOS **`YachtDice-Tray.dmg`**(`TRAY_DMG_URL`) — 으로 `releases/latest/download/…` 에서 받습니다([`DownloadCards.tsx`](src/ui/DownloadCards.tsx)).
 > 데스크톱 빌드(`desktop/`)가 이 이름으로 산출물을 내도록 설정돼 있으니, 릴리스에 **그 이름 그대로 업로드**하면 링크가 유지됩니다.
 
 ## 게임 규칙 (한국 모바일 앱 관례)
@@ -117,6 +122,8 @@ npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, fa
 > 게임 안에서 우측 상단 **❓ 도움말** 버튼으로 규칙·플레이 방법·사이트 설명을 볼 수 있습니다.
 > 처음 방문 시 한 번 자동으로 열립니다. 우측 상단 **🌙/☀️ 버튼**으로 **다크/라이트 테마**를 전환할 수 있고,
 > 선택한 테마는 브라우저에 저장되어 다음 방문에도 유지됩니다.
+> 우측 상단 **📋 버튼**으로 패치노트(업데이트 내역)를 확인할 수 있고, **💬 버튼**으로 버그 제보·기능 건의를
+> 계정 없이 익명으로 보낼 수 있습니다(피드백 창에서 카카오 오픈채팅 커뮤니티 링크도 제공).
 
 주사위 5개, 턴당 최대 3회 굴림(최초 1 + 리롤 2), 12턴 12 카테고리.
 
@@ -130,6 +137,10 @@ npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, fa
 | 라지 스트레이트 | 연속 5개 → 30 |
 | 요트 | 같은 눈 5개 → 50 |
 
+설정 ⚙️ 또는 멀티 방 만들기에서 **기본 룰 / 추가 룰**을 선택할 수 있습니다. 추가 룰에서는 요트(50점)를 만든 뒤 또 요트가 나오면
+빈 칸 1개에 **+100점(요트의 달인)**, 하단 4종(포카드·풀하우스·스몰·라지 스트레이트)을 모두 실제 조합으로 채우면
+**+50점(요트도 포커처럼)** 이 들어옵니다.
+
 룰 변형(포카드/풀하우스/스트레이트 점수 등)은 [`src/core/rules.ts`](src/core/rules.ts)
 의 `RuleConfig` 한 곳에서 바꿀 수 있습니다. **룰을 바꾸면 `npm run build:table` 로 V.bin 을 다시 만들어야** 헬퍼가 정확합니다.
 
@@ -139,6 +150,7 @@ npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, fa
 - **카테고리별 EV**: 지금 기록 시 점수 vs 리롤 시 기대 점수(+증가폭).
 - **콤보 확률**: 요트·라지·스몰·풀하우스·포카드 달성 확률.
 - **예상 최종 점수**: 현재 위치에서 최적 플레이 시 기대 총점.
+- **추가 룰에서도 동작**: 요트의 달인(반복 요트 +100)·요트도 포커처럼(하단 4종 +50)까지 내다본 최적 행동과 예상 최종 점수(추가 룰 전용 가치 테이블 `public/V.additional.bin`).
 
 ## 구조
 
@@ -149,7 +161,7 @@ src/
     dice.ts         주사위 멀티셋·리롤 분포·보관/자식 매핑
     scoring.ts      12 카테고리 채점
     gameState.ts    스코어카드/소계/보너스
-    stateIndex.ts   가치테이블 상태 패킹 (2^12 × 64)
+    stateIndex.ts   가치테이블 상태 패킹 (기본 2^12 × 64, 추가 룰셋은 ×4 확장)
   engine/      헬퍼 (UI 무관)
     withinTurnDP.ts 턴 내부 DP (보관/카테고리 argmax)
     optimalLeaf.ts  "지금 기록" 가치 (V 사용)
@@ -171,16 +183,21 @@ src/
   ui/          React 컴포넌트
     App.tsx            솔로 게임 화면 (헬퍼·설정·도움말·결과 오케스트레이션)
     Home.tsx           시작 화면 (모드 선택 + 리더보드·다운로드 진입)
+    Header             공통 상단 바 (홈·테마·도움말·설치·설정·패치노트·피드백·미니 진입)
     Die · DiceTray · Scorecard · ScorecardMini   주사위·점수판
     HelperPanel · TurnBanner                      헬퍼 조언 패널·최적 행동 배너
     SettingsPanel · HelpPanel · GameOver          설정·도움말·솔로 결과
     Lobby · MultiplayerGame · MpGameOver          멀티 로비·게임·결과
     Leaderboard · SubmitScoreModal                Top10 리더보드·점수 등록
-    DownloadCards      앱 다운로드 (PWA 설치 + 트레이 .exe)
+    DownloadCards      앱 다운로드 (PWA 설치 + 트레이 .exe/.dmg + 미니 창)
     InstallButton      PWA 설치 버튼 (beforeinstallprompt)
     PwaStatus          서비스 워커 등록 + 오프라인/업데이트 토스트
-public/V.bin     사전계산 가치 테이블 (~1MB)
-public/icon.svg  앱 아이콘 소스 (PWA 아이콘 생성 원본)
+    PatchNotesModal · FeedbackModal · ChatPanel   패치노트·인앱 피드백·멀티 채팅
+    MiniLauncherButton 미니 위젯(Document PiP) 진입 버튼
+    mini/              미니 위젯 모드 (MiniApp · MiniHeader · MiniSolo · MiniMultiplayer)
+public/V.bin             사전계산 가치 테이블 — 기본 룰셋 (~1MB)
+public/V.additional.bin  사전계산 가치 테이블 — 추가 룰셋 (~4MB)
+public/icon.svg          앱 아이콘 소스 (PWA 아이콘 생성 원본)
 ```
 
 ## 검증 (sanity checks)
@@ -188,4 +205,4 @@ public/icon.svg  앱 아이콘 소스 (PWA 아이콘 생성 원본)
 - 콤보 확률 문헌값 대조: `P(요트 | 첫 굴림, 리롤 2, 최적) = 0.04603`,
   `P(스몰 | (1,2,3,3,6), 리롤 2) ≈ 0.518`.
 - 솔버 정합성: 최적 정책 3000판 시뮬 평균 ≈ 테이블 예측값.
-  이 룰셋의 **최적 기대 평균 ≈ 191.8점**.
+  이 룰셋의 **최적 기대 평균 ≈ 191.8점**. 추가 룰셋(`V.additional.bin`)은 **≈ 227.2점**이며 `additionalSolver.test.ts` 가 동일하게 검증합니다.

@@ -159,7 +159,7 @@ export const DEFAULT_RULES: RuleConfig = {
  * 추가 룰 — 기본 채점은 동일하되 두 보너스 메커니즘을 켠다.
  * - 요트의 달인: 반복 요트 시 빈 칸 1개에 +100.
  * - 요트도 포커처럼: 하단 4종 실제 달성 시 총점 +50.
- * 헬퍼(V.bin)는 이 룰을 표현할 수 없어 비활성(별도 후속 이슈).
+ * 헬퍼는 추가 룰 전용 가치 테이블(V.additional.bin)로 이 룰까지 지원한다.
  */
 export const ADDITIONAL_RULES: RuleConfig = {
   ...DEFAULT_RULES,
@@ -179,7 +179,7 @@ export interface RulePreset {
   /** 설정/방 만들기 UI 설명. */
   desc: string;
   config: RuleConfig;
-  /** 최적-EV 헬퍼(V.bin) 지원 여부. additional 은 false. */
+  /** 최적-EV 헬퍼 지원 여부. default·additional 모두 지원(각각 V.bin·V.additional.bin). */
   helperSupported: boolean;
 }
 
