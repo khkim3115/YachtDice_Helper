@@ -414,8 +414,14 @@
       }
 
       let state;
+      // 되돌리기 스택·실격 플래그는 state 밖에 둔다 — 스냅샷 복원이 이 둘을 되돌리면
+      // undoUsed 실격이 풀리거나 history가 자기 자신을 포함해 무한 성장하기 때문(웹 store와 동일 원칙).
+      let history = [];     // 기록 직전 게임상태 스냅샷 스택.
+      let undoUsed = false; // 이번 게임에서 되돌리기를 한 번이라도 썼는지(리더보드 실격).
       function reset() {
         state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, master: [], turn: 0 };
+        history = [];
+        undoUsed = false;
         document.getElementById('over').classList.add('hidden');
         render();
       }
@@ -440,6 +446,11 @@
       }
       function pick(cat) {
         if (!state.rolled || state.filled[cat.id] != null || state.master.includes(cat.id)) return;
+        // 채점 직전 상태를 되돌리기 스택에 저장(사본). 12턴 종료 직전에도 저장 → 게임오버에서도 복원 가능.
+        history.push({
+          dice: [...state.dice], held: [...state.held], rolls: state.rolls, rolled: state.rolled,
+          filled: { ...state.filled }, master: [...state.master], turn: state.turn,
+        });
         if (masterActive()) {
           // 정상 채점 대신 고른 빈 칸에 보너스 100 기록(보너스 칸).
           state.filled[cat.id] = 100;
@@ -453,6 +464,23 @@
         state.held = [false, false, false, false, false];
         state.rolls = 3;
         state.rolled = false;
+        render();
+      }
+
+      // 되돌리기 가능: 되돌릴 기록이 있고 이번 턴을 아직 안 굴렸을 때만(웹 rollsUsed===0 대응).
+      function canUndo() { return history.length > 0 && !state.rolled; }
+      function undo() {
+        if (!history.length) return;
+        const p = history.pop();
+        state.dice = [...p.dice];
+        state.held = [...p.held];
+        state.rolls = p.rolls;
+        state.rolled = p.rolled;
+        state.filled = { ...p.filled };
+        state.master = [...p.master];
+        state.turn = p.turn;
+        undoUsed = true; // 이번 게임 리더보드 실격.
+        document.getElementById('over').classList.add('hidden'); // 게임오버에서 되돌리면 게임 복귀.
         render();
       }
 
