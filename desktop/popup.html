@@ -105,6 +105,11 @@
       }
       .roll:hover { background: var(--panel3); }
       .roll:disabled { opacity: 0.45; cursor: default; }
+      .roll-row { display: flex; gap: 5px; }
+      .roll-row .roll { flex: 1; }
+      .undo { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 5px; padding: 0 10px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+      .undo:hover:not(:disabled) { color: var(--txt); background: var(--panel3); }
+      .undo:disabled { opacity: 0.4; cursor: default; }
 
       .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
       .cat {
@@ -236,7 +241,10 @@
         </div>
       </div>
       <div class="dice" id="dice"></div>
-      <button class="roll" id="roll" tabindex="-1">굴리기</button>
+      <div class="roll-row">
+        <button class="roll" id="roll" tabindex="-1">굴리기</button>
+        <button class="undo" id="undo" tabindex="-1" disabled title="마지막 기록 되돌리기 (Backspace)">↩ 되돌리기</button>
+      </div>
       <div class="cats" id="cats"></div>
       <div class="solo-hint hidden" id="solo-hint"></div>
       <div class="foot">
@@ -534,6 +542,8 @@
         const rollBtn = document.getElementById('roll');
         rollBtn.innerHTML = state.rolls > 0 ? `굴리기 (${state.rolls}) <span class="k">Space</span>` : '기록';
         rollBtn.disabled = state.rolls <= 0;
+        const undoBtn = document.getElementById('undo');
+        if (undoBtn) undoBtn.disabled = !canUndo();
 
         const mp = masterActive();
         catsEl.innerHTML = '';
@@ -578,6 +588,7 @@
       }
 
       document.getElementById('roll').onclick = roll;
+      document.getElementById('undo').onclick = undo;
       document.getElementById('new').onclick = reset;
       document.getElementById('again').onclick = reset;
       document.getElementById('rule-toggle').onclick = () =>
@@ -733,6 +744,10 @@
           return;
         }
         if (e.key === 'Escape') { e.preventDefault(); hidePopup(); return; }
+        // 되돌리기(Backspace) — 닉네임 입력 포커스 중엔 텍스트 편집을 위해 무시. 게임오버에서도 동작.
+        if (e.key === 'Backspace' && canUndo() && document.activeElement !== nameInput) {
+          e.preventDefault(); undo(); return;
+        }
         const overOpen = !document.getElementById('over').classList.contains('hidden');
         if (overOpen) {
           if (e.key === 'Enter') {
