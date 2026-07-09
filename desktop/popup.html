@@ -467,11 +467,13 @@
           state.filled[cat.id] = cat.fn(state.dice);
         }
         state.turn++;
-        if (state.turn >= 12) return gameOver();
+        // 다음 턴 초기화를 게임오버 체크보다 먼저 — 12턴 종료 시에도 rolled=false 가 되어
+        // canUndo()가 참이 되고, 결과창에서 되돌리기(버튼/Backspace)가 실제로 동작한다(웹과 동일).
         state.dice = [1, 1, 1, 1, 1];
         state.held = [false, false, false, false, false];
         state.rolls = 3;
         state.rolled = false;
+        if (state.turn >= 12) return gameOver(); // gameOver()가 자체적으로 render() 호출.
         render();
       }
 
