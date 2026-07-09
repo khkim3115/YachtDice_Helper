@@ -105,6 +105,11 @@
       }
       .roll:hover { background: var(--panel3); }
       .roll:disabled { opacity: 0.45; cursor: default; }
+      .roll-row { display: flex; gap: 5px; }
+      .roll-row .roll { flex: 1; }
+      .undo { border: 1px solid var(--line); background: var(--panel2); color: var(--mut); border-radius: 5px; padding: 0 10px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+      .undo:hover:not(:disabled) { color: var(--txt); background: var(--panel3); }
+      .undo:disabled { opacity: 0.4; cursor: default; }
 
       .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
       .cat {
@@ -148,6 +153,8 @@
       .overcard .big { font-size: 36px; font-weight: 700; color: var(--emph); line-height: 1; }
       .overcard .ko { color: var(--mut); font-size: 11px; margin: 4px 0 12px; }
       .again { border: 1px solid var(--line); border-radius: 5px; padding: 7px 18px; font-weight: 600; color: var(--txt); cursor: pointer; background: var(--panel2); }
+      .over-undo { padding: 5px 14px; font-weight: 500; font-size: 12px; color: var(--mut); background: transparent; }
+      .over-undo:hover { color: var(--txt); background: var(--panel2); }
       .again:hover { background: var(--panel3); }
 
       /* ── 리더보드 ── */
@@ -236,7 +243,10 @@
         </div>
       </div>
       <div class="dice" id="dice"></div>
-      <button class="roll" id="roll" tabindex="-1">굴리기</button>
+      <div class="roll-row">
+        <button class="roll" id="roll" tabindex="-1">굴리기</button>
+        <button class="undo" id="undo" tabindex="-1" disabled title="마지막 기록 되돌리기 (Backspace)">↩ 되돌리기</button>
+      </div>
       <div class="cats" id="cats"></div>
       <div class="solo-hint hidden" id="solo-hint"></div>
       <div class="foot">
@@ -340,6 +350,7 @@
         <div class="big" id="final">0</div>
         <div class="ko">완료</div>
         <button class="again" id="again" tabindex="-1">다시<span class="k">Enter</span></button>
+        <button class="again over-undo" id="undo-over" tabindex="-1" style="display:none">↩ 되돌리기<span class="k">Backspace</span></button>
         <div class="lb-reg">
           <input class="lb-input" id="lb-name" maxlength="24" placeholder="닉네임" />
           <button class="lb-btn" id="lb-submit" tabindex="-1">🏆 리더보드 등록</button>
@@ -414,8 +425,14 @@
       }
 
       let state;
+      // 되돌리기 스택·실격 플래그는 state 밖에 둔다 — 스냅샷 복원이 이 둘을 되돌리면
+      // undoUsed 실격이 풀리거나 history가 자기 자신을 포함해 무한 성장하기 때문(웹 store와 동일 원칙).
+      let history = [];     // 기록 직전 게임상태 스냅샷 스택.
+      let undoUsed = false; // 이번 게임에서 되돌리기를 한 번이라도 썼는지(리더보드 실격).
       function reset() {
         state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, master: [], turn: 0 };
+        history = [];
+        undoUsed = false;
         document.getElementById('over').classList.add('hidden');
         render();
       }
@@ -440,6 +457,11 @@
       }
       function pick(cat) {
         if (!state.rolled || state.filled[cat.id] != null || state.master.includes(cat.id)) return;
+        // 채점 직전 상태를 되돌리기 스택에 저장(사본). 12턴 종료 직전에도 저장 → 게임오버에서도 복원 가능.
+        history.push({
+          dice: [...state.dice], held: [...state.held], rolls: state.rolls, rolled: state.rolled,
+          filled: { ...state.filled }, master: [...state.master], turn: state.turn,
+        });
         if (masterActive()) {
           // 정상 채점 대신 고른 빈 칸에 보너스 100 기록(보너스 칸).
           state.filled[cat.id] = 100;
@@ -448,11 +470,30 @@
           state.filled[cat.id] = cat.fn(state.dice);
         }
         state.turn++;
-        if (state.turn >= 12) return gameOver();
+        // 다음 턴 초기화를 게임오버 체크보다 먼저 — 12턴 종료 시에도 rolled=false 가 되어 canUndo()가 참.
+        // 결과창에선 오버레이가 보드의 #undo 를 가리므로, 오버레이 전용 #undo-over 버튼과 Backspace 로 되돌린다.
         state.dice = [1, 1, 1, 1, 1];
         state.held = [false, false, false, false, false];
         state.rolls = 3;
         state.rolled = false;
+        if (state.turn >= 12) return gameOver(); // gameOver()가 자체적으로 render() 호출.
+        render();
+      }
+
+      // 되돌리기 가능: 되돌릴 기록이 있고 이번 턴을 아직 안 굴렸을 때만(웹 rollsUsed===0 대응).
+      function canUndo() { return history.length > 0 && !state.rolled; }
+      function undo() {
+        if (!history.length) return;
+        const p = history.pop();
+        state.dice = [...p.dice];
+        state.held = [...p.held];
+        state.rolls = p.rolls;
+        state.rolled = p.rolled;
+        state.filled = { ...p.filled };
+        state.master = [...p.master];
+        state.turn = p.turn;
+        undoUsed = true; // 이번 게임 리더보드 실격.
+        document.getElementById('over').classList.add('hidden'); // 게임오버에서 되돌리면 게임 복귀.
         render();
       }
 
@@ -479,14 +520,24 @@
         finalPreset = soloPreset;
         document.getElementById('final').textContent = finalScore;
         document.getElementById('over').classList.remove('hidden');
-        // 리더보드 등록 UI 초기화(데스크톱은 헬퍼가 없어 항상 등록 가능).
+        // 결과창 되돌리기: 오버레이가 보드의 #undo 를 가리므로 오버레이 전용 버튼을 제공(되돌릴 기록 있을 때).
+        const undoOver = document.getElementById('undo-over');
+        if (undoOver) undoOver.style.display = canUndo() ? '' : 'none';
+        // 리더보드 등록 UI 초기화. 단, 되돌리기를 쓴 게임은 등록 실격(웹 undoUsedThisGame 대응).
         const msg = document.getElementById('lb-msg');
         const btn = document.getElementById('lb-submit');
         const nm = document.getElementById('lb-name');
-        if (msg) msg.textContent = '';
-        if (btn) btn.disabled = false;
         lbSubmitted = false; // 새 게임 점수 → 다시 등록 가능.
-        try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || ''; } catch {}
+        if (undoUsed) {
+          if (nm) nm.style.display = 'none';
+          if (btn) btn.style.display = 'none';
+          if (msg) msg.textContent = '↩ 되돌리기 사용 — 리더보드 등록 제외';
+        } else {
+          if (nm) nm.style.display = '';
+          if (btn) { btn.style.display = ''; btn.disabled = false; }
+          if (msg) msg.textContent = '';
+          try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || ''; } catch {}
+        }
       }
 
       const diceEl = document.getElementById('dice');
@@ -506,6 +557,8 @@
         const rollBtn = document.getElementById('roll');
         rollBtn.innerHTML = state.rolls > 0 ? `굴리기 (${state.rolls}) <span class="k">Space</span>` : '기록';
         rollBtn.disabled = state.rolls <= 0;
+        const undoBtn = document.getElementById('undo');
+        if (undoBtn) undoBtn.disabled = !canUndo();
 
         const mp = masterActive();
         catsEl.innerHTML = '';
@@ -550,8 +603,10 @@
       }
 
       document.getElementById('roll').onclick = roll;
+      document.getElementById('undo').onclick = undo;
       document.getElementById('new').onclick = reset;
       document.getElementById('again').onclick = reset;
+      document.getElementById('undo-over').onclick = undo;
       document.getElementById('rule-toggle').onclick = () =>
         setSoloPreset(soloPreset === 'default' ? 'additional' : 'default');
       // 닫지 않고 숨기기만(상태 유지). preload 미주입 시 close 로 폴백.
@@ -642,6 +697,8 @@
       }
 
       async function submitScore() {
+        // 되돌리기를 쓴 게임은 등록 실격 — UI 숨김이 우회돼도 서버 등록 차단(2차 방어).
+        if (undoUsed) return;
         // 이미 등록했거나 진행 중이면 무시(버튼 클릭·Enter 연타 모두 차단).
         if (lbSubmitted) return;
         const nm = nameInput.value.trim();
@@ -705,6 +762,10 @@
           return;
         }
         if (e.key === 'Escape') { e.preventDefault(); hidePopup(); return; }
+        // 되돌리기(Backspace) — 닉네임 입력 포커스 중엔 텍스트 편집을 위해 무시. 게임오버에서도 동작.
+        if (e.key === 'Backspace' && canUndo() && document.activeElement !== nameInput) {
+          e.preventDefault(); undo(); return;
+        }
         const overOpen = !document.getElementById('over').classList.contains('hidden');
         if (overOpen) {
           if (e.key === 'Enter') {
