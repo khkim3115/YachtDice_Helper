@@ -153,6 +153,8 @@
       .overcard .big { font-size: 36px; font-weight: 700; color: var(--emph); line-height: 1; }
       .overcard .ko { color: var(--mut); font-size: 11px; margin: 4px 0 12px; }
       .again { border: 1px solid var(--line); border-radius: 5px; padding: 7px 18px; font-weight: 600; color: var(--txt); cursor: pointer; background: var(--panel2); }
+      .over-undo { padding: 5px 14px; font-weight: 500; font-size: 12px; color: var(--mut); background: transparent; }
+      .over-undo:hover { color: var(--txt); background: var(--panel2); }
       .again:hover { background: var(--panel3); }
 
       /* ── 리더보드 ── */
@@ -348,6 +350,7 @@
         <div class="big" id="final">0</div>
         <div class="ko">완료</div>
         <button class="again" id="again" tabindex="-1">다시<span class="k">Enter</span></button>
+        <button class="again over-undo" id="undo-over" tabindex="-1" style="display:none">↩ 되돌리기<span class="k">Backspace</span></button>
         <div class="lb-reg">
           <input class="lb-input" id="lb-name" maxlength="24" placeholder="닉네임" />
           <button class="lb-btn" id="lb-submit" tabindex="-1">🏆 리더보드 등록</button>
@@ -467,8 +470,8 @@
           state.filled[cat.id] = cat.fn(state.dice);
         }
         state.turn++;
-        // 다음 턴 초기화를 게임오버 체크보다 먼저 — 12턴 종료 시에도 rolled=false 가 되어
-        // canUndo()가 참이 되고, 결과창에서 되돌리기(버튼/Backspace)가 실제로 동작한다(웹과 동일).
+        // 다음 턴 초기화를 게임오버 체크보다 먼저 — 12턴 종료 시에도 rolled=false 가 되어 canUndo()가 참.
+        // 결과창에선 오버레이가 보드의 #undo 를 가리므로, 오버레이 전용 #undo-over 버튼과 Backspace 로 되돌린다.
         state.dice = [1, 1, 1, 1, 1];
         state.held = [false, false, false, false, false];
         state.rolls = 3;
@@ -517,6 +520,9 @@
         finalPreset = soloPreset;
         document.getElementById('final').textContent = finalScore;
         document.getElementById('over').classList.remove('hidden');
+        // 결과창 되돌리기: 오버레이가 보드의 #undo 를 가리므로 오버레이 전용 버튼을 제공(되돌릴 기록 있을 때).
+        const undoOver = document.getElementById('undo-over');
+        if (undoOver) undoOver.style.display = canUndo() ? '' : 'none';
         // 리더보드 등록 UI 초기화. 단, 되돌리기를 쓴 게임은 등록 실격(웹 undoUsedThisGame 대응).
         const msg = document.getElementById('lb-msg');
         const btn = document.getElementById('lb-submit');
@@ -600,6 +606,7 @@
       document.getElementById('undo').onclick = undo;
       document.getElementById('new').onclick = reset;
       document.getElementById('again').onclick = reset;
+      document.getElementById('undo-over').onclick = undo;
       document.getElementById('rule-toggle').onclick = () =>
         setSoloPreset(soloPreset === 'default' ? 'additional' : 'default');
       // 닫지 않고 숨기기만(상태 유지). preload 미주입 시 close 로 폴백.
