@@ -31,6 +31,25 @@ export interface ChangelogEntry {
 /** 최신이 [0]. 날짜 내림차순 유지(테스트로 강제). 콘텐츠는 git 이력 기반. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.1',
+    date: '2026-07-27',
+    title: '개인 평균 점수 통계 추가',
+    changes: [
+      {
+        type: 'feature',
+        text: '📊 솔로·멀티, 룰(기본/추가)별로 내 평균 점수를 저장해서 보여줘요. 게임마다 "평균에 포함" 토글로 이번 판을 뺄지 정할 수 있고, 토글은 시작 시점에 고정돼 변경은 다음 게임부터 적용돼요.',
+      },
+      {
+        type: 'improvement',
+        text: '게임을 3칸 이상 채우고 중도 포기하면 부분 점수도 평균에 반영돼요(그 미만은 미집계). 헬퍼를 쓴 게임이나 되돌리기를 한 게임은 집계에서 빠져요.',
+      },
+      {
+        type: 'improvement',
+        text: '평균 통계는 기기에만 저장돼요(웹·트레이 앱 각자 독립, 서버 동기화 없음).',
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-06-28',
     title: 'macOS 트레이 앱 + 미니 창 색감 정리',
