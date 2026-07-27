@@ -169,7 +169,7 @@ function commitOutgoingPartial(s: GameStore): { avgStats: AvgStats; recorded: bo
   }
   const key = bucketKey('solo', s.rulePreset);
   const score = grandTotal(s.card, s.rules);
-  const next = recordPartial(s.avgStats, key, score);
+  const next = recordPartial(loadStats(), key, score);
   saveStats(next);
   return { avgStats: next, recorded: true };
 }
@@ -273,7 +273,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // 완료 순간 1회 기록: 포함 ON·미기록·순수 게임일 때만.
     if (over && !avgRecorded && s.includeThisGame && !s.helperUsedThisGame && !s.undoUsedThisGame) {
       const score = grandTotal(card, s.rules);
-      avgStats = recordCompleted(s.avgStats, bucketKey('solo', s.rulePreset), score);
+      avgStats = recordCompleted(loadStats(), bucketKey('solo', s.rulePreset), score);
       avgRecorded = true;
       recordedAmount = score;
       saveStats(avgStats);
@@ -305,7 +305,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let avgRecorded = s.avgRecorded;
     let recordedAmount = s.recordedAmount;
     if (avgRecorded && !isGameOver(prev.card)) {
-      avgStats = reverseRecord(s.avgStats, bucketKey('solo', s.rulePreset), s.recordedAmount);
+      avgStats = reverseRecord(loadStats(), bucketKey('solo', s.rulePreset), s.recordedAmount);
       saveStats(avgStats);
       avgRecorded = false;
       recordedAmount = 0;
@@ -415,7 +415,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetAvgBucket: (mode, preset) => {
-    const next = resetBucket(get().avgStats, bucketKey(mode, preset));
+    const next = resetBucket(loadStats(), bucketKey(mode, preset));
     saveStats(next);
     set({ avgStats: next });
   },

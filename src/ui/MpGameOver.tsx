@@ -24,7 +24,7 @@ export function MpGameOver() {
     recordMpResultIfNeeded();
     const b = loadStats()[bucketKey('multi', room.rulePreset)];
     setMyAvg({ avg: averageOf(b), count: b.count, best: b.best });
-  }, [room?.rulePreset, recordMpResultIfNeeded]);
+  }, [room?.rulePreset, recordMpResultIfNeeded, players]);
 
   if (!room) return null;
 

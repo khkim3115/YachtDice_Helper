@@ -982,6 +982,18 @@
         const me = mpPlayers.find((p) => p.seat === mySeat);
         return (me && me.scorecard && me.scorecard.scores) || {};
       }
+      // 정상 종료 시 내 최종 점수를 multi 버킷에 1회 기록(멱등). 스코어카드가 아직 미완성(마지막 칸이
+      // 나중 Realtime 이벤트로 도착 중)이면 대기하고, routeMpScreen 이 상태 갱신마다 재호출해 재시도한다.
+      function avgMpTryRecord() {
+        if (avgMpCounted || !avgMpIncludeThisGame || !mpRoom || mpRoom.helperAllowed) return;
+        var _filled = Object.keys(mySc()).length + (myMaster() ? myMaster().length : 0);
+        if (_filled < 12) return; // 스코어카드 미완성 — 나중 이벤트에서 재시도
+        var _mk = 'multi:' + (mpRoom.rulePreset === 'additional' ? 'additional' : 'default');
+        var _ms = scorecardTotal({ scores: mySc(), masterCells: myMaster() });
+        avgStats[_mk].count++; avgStats[_mk].sum += _ms;
+        avgStats[_mk].best = Math.max(avgStats[_mk].best, _ms);
+        avgSaveStats(avgStats); avgMpCounted = true;
+      }
 
       // ── 화면 전환 ──
       function currentScreenName() {
@@ -1044,6 +1056,8 @@
           avgMpIncludeThisGame = avgLoadInclude(); avgMpCounted = false;
         }
         avgMpPrevStatus = mpRoom.status;
+        // finished 상태로 갱신될 때마다 재시도(스코어카드 완성 전이면 avgMpTryRecord 내부에서 대기).
+        if (mpRoom.status === 'finished') avgMpTryRecord();
         const target = mpScreenForStatus(mpRoom.status);
         if (currentScreenName() !== target) {
           showScreen(target);
@@ -1215,14 +1229,7 @@
         if (btn) btn.disabled = false;
         mpLbSubmitted = false;
         try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || localStorage.getItem('yd_mp_name') || ''; } catch (_) {}
-        // 정상 종료 1회 기록: 포함 스냅샷이 켜져 있고 · 아직 미기록 · 순수(헬퍼 미허용 방)일 때만 multi 버킷에 반영.
-        if (avgMpIncludeThisGame && !avgMpCounted && mpRoom && !mpRoom.helperAllowed) {
-          var _mk = 'multi:' + (mpRoom.rulePreset === 'additional' ? 'additional' : 'default');
-          var _ms = scorecardTotal({ scores: mySc(), masterCells: myMaster() });
-          avgStats[_mk].count++; avgStats[_mk].sum += _ms;
-          avgStats[_mk].best = Math.max(avgStats[_mk].best, _ms);
-          avgSaveStats(avgStats); avgMpCounted = true;
-        }
+        avgMpTryRecord(); // 정상 종료 1회 기록(멱등 — routeMpScreen 에서 이미 반영됐을 수 있음)
       }
       function renderMpOver() {
         const room = mpRoom;

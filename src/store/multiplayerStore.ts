@@ -6,7 +6,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ensureAnonSession } from '../lib/supabase';
 import { RULE_PRESETS } from '../core/rules';
 import type { CategoryId, RulePresetId } from '../core/rules';
-import { grandTotal } from '../core/gameState';
+import { grandTotal, isGameOver } from '../core/gameState';
 import type { Scorecard } from '../core/gameState';
 import { bucketKey, recordCompleted } from '../core/averageStats';
 import { loadStats, saveStats, loadIncludeDefault } from './averageStorage';
@@ -272,6 +272,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
     if (!s.mpIncludeThisGame || s.mpAvgRecorded || room.helperAllowed) return; // 순수 = 헬퍼 비허용 방
     const me = s.players.find((p) => p.userId === s.myUserId);
     if (!me) return;
+    if (!isGameOver(me.scorecard)) return; // 스코어카드 미완성 — 나중 이벤트에서 재시도
     const rules = RULE_PRESETS[room.rulePreset].config;
     const score = grandTotal(me.scorecard, rules);
     const next = recordCompleted(loadStats(), bucketKey('multi', room.rulePreset), score);
