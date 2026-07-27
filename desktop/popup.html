@@ -228,6 +228,9 @@
       .mp-chat-input { display: flex; gap: 5px; }
       .mp-chat-input .lb-input { flex: 1 1 auto; text-align: left; }
       .mp-chat-input .lb-btn { flex: 0 0 auto; padding: 5px 10px; }
+
+      .avg-line { font-size: 12px; color: var(--mut); margin: 6px 0; }
+      .avg-inc { font-size: 12px; color: var(--mut); display: flex; gap: 6px; align-items: center; justify-content: center; }
     </style>
     <script src="./vendor/supabase.js"></script>
   </head>
@@ -349,6 +352,8 @@
       <div class="overcard">
         <div class="big" id="final">0</div>
         <div class="ko">완료</div>
+        <div class="avg-line" id="avg-line"></div>
+        <label class="avg-inc"><input type="checkbox" id="avg-include" tabindex="-1"> 평균 집계(다음 게임부터)</label>
         <button class="again" id="again" tabindex="-1">다시<span class="k">Enter</span></button>
         <button class="again over-undo" id="undo-over" tabindex="-1" style="display:none">↩ 되돌리기<span class="k">Backspace</span></button>
         <div class="lb-reg">
@@ -419,9 +424,45 @@
       }
       let soloPreset = loadPreset();
       function setSoloPreset(p) {
+        avgCommitOutgoing(); // 옛 프리셋 버킷에 부분 반영 후 전환
         soloPreset = p === 'additional' ? 'additional' : 'default';
         try { localStorage.setItem('yd_rule_preset', soloPreset); } catch {}
         reset(); // 규칙 변경 시 새 게임.
+      }
+
+      // ── 개인 평균 통계(웹 averageStats·store 와 동일 규칙, 여기선 인라인 재구현) ──
+      var AVG_STATS_KEY = 'yd_avg_stats', AVG_INCLUDE_KEY = 'yd_avg_include', AVG_MIN_PARTIAL = 3;
+      function avgEmptyBucket() { return { count: 0, sum: 0, best: 0, partialCount: 0 }; }
+      function avgEmptyStats() {
+        return { 'solo:default': avgEmptyBucket(), 'solo:additional': avgEmptyBucket(),
+                 'multi:default': avgEmptyBucket(), 'multi:additional': avgEmptyBucket() };
+      }
+      function avgLoadStats() {
+        try {
+          var o = JSON.parse(localStorage.getItem(AVG_STATS_KEY) || '{}') || {}, out = avgEmptyStats();
+          Object.keys(out).forEach(function (k) {
+            var b = o[k] || {}, num = function (x) { return (typeof x === 'number' && isFinite(x) && x >= 0) ? x : 0; };
+            out[k] = { count: num(b.count), sum: num(b.sum), best: num(b.best), partialCount: num(b.partialCount) };
+          });
+          return out;
+        } catch (_) { return avgEmptyStats(); }
+      }
+      function avgSaveStats(s) { try { localStorage.setItem(AVG_STATS_KEY, JSON.stringify(s)); } catch (_) {} }
+      function avgLoadInclude() { try { return localStorage.getItem(AVG_INCLUDE_KEY) !== '0'; } catch (_) { return true; } }
+      function avgSaveInclude(on) { try { localStorage.setItem(AVG_INCLUDE_KEY, on ? '1' : '0'); } catch (_) {} }
+
+      var avgStats = avgLoadStats();
+      var avgIncludeDefault = avgLoadInclude();
+      var avgIncludeThisGame = avgIncludeDefault; // reset()에서 재스냅샷
+      var avgCounted = false, avgRecordedAmount = 0;
+
+      // 진행 중·미기록·순수(되돌리기 미사용)·floor·포함이면 현재 부분 점수를 solo 버킷에 기록.
+      function avgCommitOutgoing() {
+        if (avgCounted || !avgIncludeThisGame || undoUsed) return;
+        if (!state || state.turn >= 12 || state.turn < AVG_MIN_PARTIAL) return;
+        var k = 'solo:' + soloPreset, sc = total();
+        avgStats[k].count++; avgStats[k].sum += sc; avgStats[k].partialCount++;
+        avgSaveStats(avgStats); avgCounted = true; avgRecordedAmount = sc;
       }
 
       let state;
@@ -433,6 +474,8 @@
         state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, master: [], turn: 0 };
         history = [];
         undoUsed = false;
+        avgIncludeThisGame = avgIncludeDefault;
+        avgCounted = false; avgRecordedAmount = 0;
         document.getElementById('over').classList.add('hidden');
         render();
       }
@@ -493,6 +536,13 @@
         state.master = [...p.master];
         state.turn = p.turn;
         undoUsed = true; // 이번 게임 리더보드 실격.
+        if (avgCounted && p.turn < 12) { // 완료 기록 되돌림(재완료 시 undoUsed 로 재기록 안 됨)
+          var _k = 'solo:' + soloPreset;
+          avgStats[_k].count = Math.max(0, avgStats[_k].count - 1);
+          avgStats[_k].sum = Math.max(0, avgStats[_k].sum - avgRecordedAmount);
+          avgSaveStats(avgStats); avgCounted = false; avgRecordedAmount = 0;
+          renderAvg();
+        }
         document.getElementById('over').classList.add('hidden'); // 게임오버에서 되돌리면 게임 복귀.
         render();
       }
@@ -518,6 +568,13 @@
         render();
         finalScore = total();
         finalPreset = soloPreset;
+        if (avgIncludeThisGame && !avgCounted && !undoUsed) {
+          var _k = 'solo:' + finalPreset;
+          avgStats[_k].count++; avgStats[_k].sum += finalScore;
+          avgStats[_k].best = Math.max(avgStats[_k].best, finalScore);
+          avgSaveStats(avgStats); avgCounted = true; avgRecordedAmount = finalScore;
+        }
+        renderAvg();
         document.getElementById('final').textContent = finalScore;
         document.getElementById('over').classList.remove('hidden');
         // 결과창 되돌리기: 오버레이가 보드의 #undo 를 가리므로 오버레이 전용 버튼을 제공(되돌릴 기록 있을 때).
@@ -602,9 +659,23 @@
         document.getElementById('turn').textContent = `${Math.min(state.turn + 1, 12)} / 12`;
       }
 
+      function renderAvg() {
+        var el = document.getElementById('avg-line'); if (!el) return;
+        var b = avgStats['solo:' + soloPreset] || avgEmptyBucket();
+        var avg = b.count > 0 ? Math.round(b.sum / b.count) : null;
+        var badge = avgCounted ? '평균 반영됨' : (avgIncludeThisGame ? '평균 미반영(되돌리기)' : '평균 미반영(연습)');
+        el.textContent = (avg === null ? '기록 없음'
+          : '내 평균 ' + avg + ' · ' + b.count + '판' + (b.partialCount ? ' (미완료 ' + b.partialCount + ')' : '') + ' · 최고 ' + b.best)
+          + ' · ' + badge;
+      }
+      (function () {
+        var inc = document.getElementById('avg-include');
+        if (inc) { inc.checked = avgIncludeDefault; inc.onchange = function () { avgIncludeDefault = inc.checked; avgSaveInclude(avgIncludeDefault); }; }
+      })();
+
       document.getElementById('roll').onclick = roll;
       document.getElementById('undo').onclick = undo;
-      document.getElementById('new').onclick = reset;
+      document.getElementById('new').onclick = function () { avgCommitOutgoing(); reset(); };
       document.getElementById('again').onclick = reset;
       document.getElementById('undo-over').onclick = undo;
       document.getElementById('rule-toggle').onclick = () =>
