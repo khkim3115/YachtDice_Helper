@@ -323,6 +323,7 @@
         <div class="overcard">
           <div class="big" id="mp-final">0</div>
           <div class="ko" id="mp-result">완료</div>
+          <div class="avg-line" id="mp-avg-line"></div>
           <button class="again" id="mp-again" tabindex="-1">로비로<span class="k">Enter</span></button>
           <div class="lb-reg">
             <input class="lb-input" id="mp-lb-name" maxlength="24" placeholder="닉네임" />
@@ -455,6 +456,8 @@
       var avgIncludeDefault = avgLoadInclude();
       var avgIncludeThisGame = avgIncludeDefault; // reset()에서 재스냅샷
       var avgCounted = false, avgRecordedAmount = 0;
+      // 멀티 평균 집계용(웹 store 의 avgMp* 대응) — playing 진입 시 잠그고 정상 종료(#mp-over) 1회만 기록.
+      var avgMpIncludeThisGame = false, avgMpCounted = false, avgMpPrevStatus = null;
 
       // 진행 중·미기록·순수(되돌리기 미사용)·floor·포함이면 현재 부분 점수를 solo 버킷에 기록.
       function avgCommitOutgoing() {
@@ -1036,6 +1039,11 @@
       function routeMpScreen() {
         if (!mpRoom) return;
         if (mpRoom.status === 'abandoned') { handleRoomGone(); return; }
+        // playing 진입 순간(=이전 상태가 playing이 아니었을 때) 이번 게임의 포함 여부를 스냅샷·잠금(웹 Task 5와 동일 규칙).
+        if (mpRoom.status === 'playing' && avgMpPrevStatus !== 'playing') {
+          avgMpIncludeThisGame = avgLoadInclude(); avgMpCounted = false;
+        }
+        avgMpPrevStatus = mpRoom.status;
         const target = mpScreenForStatus(mpRoom.status);
         if (currentScreenName() !== target) {
           showScreen(target);
@@ -1046,6 +1054,7 @@
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
         mpRoom = null; mpPlayers = []; mySeat = null; mpSelectedSeat = null;
         mpMessages = []; mpChatSeen = 0; closeChat();
+        avgMpPrevStatus = null; avgMpCounted = false; // 다음 게임이 새로 잠기도록.
         try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
         showScreen('mp-lobby'); renderLobby();
         setLobbyMsg('방이 종료되었습니다.');
@@ -1206,6 +1215,14 @@
         if (btn) btn.disabled = false;
         mpLbSubmitted = false;
         try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || localStorage.getItem('yd_mp_name') || ''; } catch (_) {}
+        // 정상 종료 1회 기록: 포함 스냅샷이 켜져 있고 · 아직 미기록 · 순수(헬퍼 미허용 방)일 때만 multi 버킷에 반영.
+        if (avgMpIncludeThisGame && !avgMpCounted && mpRoom && !mpRoom.helperAllowed) {
+          var _mk = 'multi:' + (mpRoom.rulePreset === 'additional' ? 'additional' : 'default');
+          var _ms = scorecardTotal({ scores: mySc(), masterCells: myMaster() });
+          avgStats[_mk].count++; avgStats[_mk].sum += _ms;
+          avgStats[_mk].best = Math.max(avgStats[_mk].best, _ms);
+          avgSaveStats(avgStats); avgMpCounted = true;
+        }
       }
       function renderMpOver() {
         const room = mpRoom;
@@ -1218,6 +1235,14 @@
           result = w && w.seat === mySeat ? '🏆 승리!' : (w ? escapeHtml(w.displayName) : '상대') + ' 승';
         }
         document.getElementById('mp-result').innerHTML = result;
+        const avgEl = document.getElementById('mp-avg-line');
+        if (avgEl) {
+          const mk = 'multi:' + (room.rulePreset === 'additional' ? 'additional' : 'default');
+          const b = avgStats[mk] || avgEmptyBucket();
+          const avg = b.count > 0 ? Math.round(b.sum / b.count) : null;
+          const badge = avgMpCounted ? '평균 반영됨' : (avgMpIncludeThisGame ? '평균 미반영(헬퍼 허용 방)' : '평균 미반영(연습)');
+          avgEl.textContent = (avg === null ? '기록 없음' : '내 평균 ' + avg + ' · ' + b.count + '판 · 최고 ' + b.best) + ' · ' + badge;
+        }
       }
       async function mpSubmitScore() {
         if (mpLbSubmitted) return;
@@ -1397,6 +1422,7 @@
         if (mpChannel) { mpc.removeChannel(mpChannel); mpChannel = null; }
         mpRoom = null; mpPlayers = []; mySeat = null; mpSelectedSeat = null;
         mpMessages = []; mpChatSeen = 0; closeChat();
+        avgMpPrevStatus = null; avgMpCounted = false; // 다음 게임이 새로 잠기도록.
         try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
         showScreen('mp-lobby'); renderLobby(); setLobbyMsg('');
       }
