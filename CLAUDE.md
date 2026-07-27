@@ -76,6 +76,8 @@ The static front end (GitHub Pages) holds **no game authority**. All multiplayer
 
 `vite.config.ts` configures `vite-plugin-pwa`. The Workbox `globPatterns` **includes `bin`** so `V.bin` is precached — the app (and helper) work fully offline after first load. Service worker registration is centralized in `src/ui/PwaStatus.tsx` (`registerType: 'prompt'`, manual register); `InstallButton.tsx` handles `beforeinstallprompt`. The SW is off in `dev` — verify install/offline with `npm run build && npm run preview`.
 
+Personal average-score stats live in `localStorage['yd_avg_stats']` / `['yd_avg_include']` (per mode·rule-preset bucket + the "include in average" default toggle); the pure aggregation logic is `src/core/averageStats.ts` (unit-test target) with the localStorage bridge in `src/store/averageStorage.ts` — the desktop tray app reimplements the same rules inline in `desktop/popup.html` (same keys, no shared code).
+
 ## Deployment
 
 Push to `main` → `.github/workflows/deploy.yml` runs `npm run build` (which regenerates V.bin via `prebuild`) and publishes to GitHub Pages. `base: './'` in `vite.config.ts` keeps it working under a sub-path, so Vercel (build `npm run build`, output `dist`) works too without changes.

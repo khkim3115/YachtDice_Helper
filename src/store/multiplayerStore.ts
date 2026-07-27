@@ -4,8 +4,12 @@
 import { create } from 'zustand';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ensureAnonSession } from '../lib/supabase';
+import { RULE_PRESETS } from '../core/rules';
 import type { CategoryId, RulePresetId } from '../core/rules';
+import { grandTotal, isGameOver } from '../core/gameState';
 import type { Scorecard } from '../core/gameState';
+import { bucketKey, recordCompleted } from '../core/averageStats';
+import { loadStats, saveStats, loadIncludeDefault } from './averageStorage';
 import { appendCapped, sanitizeChatText } from '../lib/chat';
 import type { ChatMessage } from '../lib/chat';
 
@@ -50,6 +54,11 @@ interface MpState {
   channel: RealtimeChannel | null;
   /** 방 채팅(broadcast, 최근 CHAT_KEEP개만 유지). 방을 나가면 비워진다. */
   messages: ChatMessage[];
+  /** 이 멀티 게임 평균 포함 여부(playing 진입 시 스냅샷). */
+  mpIncludeThisGame: boolean;
+  /** 이 멀티 게임 기록 완료 가드(멱등). */
+  mpAvgRecorded: boolean;
+  recordMpResultIfNeeded: () => void;
 
   selectPlayer: (seat: number | null) => void;
   sendChat: (text: string) => void;
@@ -88,6 +97,17 @@ function mapRoom(r: any): MpRoom {
     winnerSeat: r.winner_seat,
     isTie: !!r.is_tie,
   };
+}
+
+// 방 상태 갱신 시 lobby/finished → playing 전이를 감지해 포함 여부를 시작 시점에 고정.
+function setRoomDetectingStart(
+  get: () => MpState, set: (p: Partial<MpState>) => void, next: MpRoom,
+) {
+  const prev = get().room;
+  if (next.status === 'playing' && prev?.status !== 'playing') {
+    set({ mpIncludeThisGame: loadIncludeDefault(), mpAvgRecorded: false });
+  }
+  set({ room: next });
 }
 
 function mapPlayer(p: any): MpPlayer {
@@ -131,6 +151,8 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
   error: null,
   channel: null,
   messages: [],
+  mpIncludeThisGame: false,
+  mpAvgRecorded: false,
 
   selectPlayer: (seat) => set({ selectedSeat: seat }),
 
@@ -230,7 +252,32 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
     if (room) await supabase.rpc('leave_room', { p_room: room.id }).then(undefined, () => {});
     if (channel) void supabase.removeChannel(channel);
     localStorage.removeItem('yd_mp_code');
-    set({ room: null, players: [], channel: null, error: null, selectedSeat: null, messages: [] });
+    set({
+      room: null,
+      players: [],
+      channel: null,
+      error: null,
+      selectedSeat: null,
+      messages: [],
+      mpIncludeThisGame: false,
+      mpAvgRecorded: false,
+    });
+  },
+
+  // 멀티 정상 종료 시 내 최종 점수를 multi 버킷에 1회 기록(멱등 — MpGameOver 효과에서 호출).
+  recordMpResultIfNeeded: () => {
+    const s = get();
+    const room = s.room;
+    if (!room || room.status !== 'finished') return;
+    if (!s.mpIncludeThisGame || s.mpAvgRecorded || room.helperAllowed) return; // 순수 = 헬퍼 비허용 방
+    const me = s.players.find((p) => p.userId === s.myUserId);
+    if (!me) return;
+    if (!isGameOver(me.scorecard)) return; // 스코어카드 미완성 — 나중 이벤트에서 재시도
+    const rules = RULE_PRESETS[room.rulePreset].config;
+    const score = grandTotal(me.scorecard, rules);
+    const next = recordCompleted(loadStats(), bucketKey('multi', room.rulePreset), score);
+    saveStats(next);
+    set({ mpAvgRecorded: true });
   },
 
   clearError: () => set({ error: null }),
@@ -254,7 +301,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
             set({ room: null, players: [] });
             return;
           }
-          set({ room: mapRoom(payload.new) });
+          setRoomDetectingStart(get, set, mapRoom(payload.new));
         },
       )
       .on(
@@ -286,7 +333,7 @@ export const useMultiplayerStore = create<MpState>((set, get) => ({
       .select('*')
       .eq('room_id', roomId)
       .order('seat');
-    if (roomData) set({ room: mapRoom(roomData) });
+    if (roomData) setRoomDetectingStart(get, set, mapRoom(roomData));
     if (playersData) set({ players: (playersData as unknown[]).map(mapPlayer) });
   },
 }));

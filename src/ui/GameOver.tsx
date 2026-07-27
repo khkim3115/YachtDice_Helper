@@ -11,6 +11,7 @@ import {
   upperSubtotal,
 } from '../core/gameState';
 import { useGameStore } from '../store/gameStore';
+import { averageOf, bucketKey } from '../core/averageStats';
 import { SubmitScoreModal } from './SubmitScoreModal';
 
 /** 기본 룰 최적 플레이 평균(사전계산 결과, src/precompute 출력). */
@@ -28,7 +29,17 @@ export function GameOver() {
   const undoUsedThisGame = useGameStore((s) => s.undoUsedThisGame);
   const scoreSubmittedThisGame = useGameStore((s) => s.scoreSubmittedThisGame);
   const markScoreSubmitted = useGameStore((s) => s.markScoreSubmitted);
+  const avgStats = useGameStore((s) => s.avgStats);
+  const includeThisGame = useGameStore((s) => s.includeThisGame);
+  const avgRecorded = useGameStore((s) => s.avgRecorded);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const bucket = avgStats[bucketKey('solo', rulePreset)];
+  const avg = averageOf(bucket);
+  const avgBadge = avgRecorded
+    ? '이 게임 평균 반영됨 ✓'
+    : includeThisGame
+      ? '평균 미반영 (헬퍼·되돌리기 사용)'
+      : '평균 미반영 (연습)';
 
   const total = grandTotal(card, rules);
   const sub = upperSubtotal(card);
@@ -66,6 +77,11 @@ export function GameOver() {
         <h2>게임 종료</h2>
         <div className="final-score">{total}</div>
         <div className="compare">{compare}</div>
+
+        <div className="go-myavg">
+          {avg !== null && <span className="go-avg-val">내 평균 {Math.round(avg)} · {bucket.count}판</span>}
+          <span className={`go-avg-badge ${avgRecorded ? 'on' : ''}`}>{avgBadge}</span>
+        </div>
 
         <div className="go-detail">
           <div className="go-col">

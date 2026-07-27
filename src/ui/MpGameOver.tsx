@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RULE_PRESETS } from '../core/rules';
 import { grandTotal } from '../core/gameState';
+import { averageOf, bucketKey } from '../core/averageStats';
 import { useAppStore } from '../store/appStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
+import { loadStats } from '../store/averageStorage';
 import { SubmitScoreModal } from './SubmitScoreModal';
 
 export function MpGameOver() {
@@ -11,9 +13,19 @@ export function MpGameOver() {
   const players = useMultiplayerStore((s) => s.players);
   const myUserId = useMultiplayerStore((s) => s.myUserId);
   const leave = useMultiplayerStore((s) => s.leave);
+  const recordMpResultIfNeeded = useMultiplayerStore((s) => s.recordMpResultIfNeeded);
   const [submitOpen, setSubmitOpen] = useState(false);
   // 이번 게임 점수를 이미 등록했는지(재등록 방지). MpGameOver 는 "홈으로" 전까지 유지되므로 local state 로 충분.
   const [submitted, setSubmitted] = useState(false);
+  const [myAvg, setMyAvg] = useState<{ avg: number | null; count: number; best: number } | null>(null);
+
+  useEffect(() => {
+    if (!room) return;
+    recordMpResultIfNeeded();
+    const b = loadStats()[bucketKey('multi', room.rulePreset)];
+    setMyAvg({ avg: averageOf(b), count: b.count, best: b.best });
+  }, [room?.rulePreset, recordMpResultIfNeeded, players]);
+
   if (!room) return null;
 
   const rules = RULE_PRESETS[room.rulePreset].config;
@@ -56,6 +68,12 @@ export function MpGameOver() {
             </div>
           ))}
         </div>
+
+        {myAvg && myAvg.avg !== null && (
+          <div className="go-myavg">
+            <span className="go-avg-val">내 멀티 평균 {Math.round(myAvg.avg)} · {myAvg.count}판 · 최고 {myAvg.best}</span>
+          </div>
+        )}
 
         {canRegister &&
           (submitted ? (
