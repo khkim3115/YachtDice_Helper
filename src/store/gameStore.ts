@@ -7,6 +7,8 @@ import { STATE_COUNT, STATE_COUNT_ADDITIONAL } from '../core/stateIndex';
 import type { Scorecard } from '../core/gameState';
 import {
   createScorecard,
+  filledCount,
+  grandTotal,
   isCategoryFilled,
   isGameOver,
   recordMasterYachtBonus,
@@ -16,6 +18,13 @@ import { isFiveOfAKind, scoreDice } from '../core/scoring';
 import type { Advisor } from '../engine/advisor';
 import { createAdvisor } from '../engine/advisor';
 import { loadValueTable } from '../engine/valueTable';
+import type { AvgMode, AvgStats } from '../core/averageStats';
+import {
+  bucketKey, meetsPartialFloor, recordCompleted, recordPartial, resetBucket, reverseRecord,
+} from '../core/averageStats';
+import {
+  loadIncludeDefault, loadStats, saveIncludeDefault, saveStats,
+} from './averageStorage';
 
 export type TableStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -64,6 +73,17 @@ interface GameStore {
   /** 현재 테마(다크/라이트). */
   theme: ThemeMode;
 
+  /** 개인 평균 포함 기본값(설정에서 변경, yd_avg_include). */
+  includeInAverage: boolean;
+  /** 이 게임의 포함 여부(시작 시 스냅샷 — 되돌리기 스냅샷 밖). */
+  includeThisGame: boolean;
+  /** 이 게임을 평균에 이미 기록했는지(1회 가드 — 스냅샷 밖). */
+  avgRecorded: boolean;
+  /** 기록한 값(되돌리기 정확 역산용 — 스냅샷 밖). */
+  recordedAmount: number;
+  /** 화면 갱신용 통계 미러(단일 출처는 localStorage yd_avg_stats). */
+  avgStats: AvgStats;
+
   rerollsLeft: () => number;
   canRoll: () => boolean;
   canReroll: () => boolean;
@@ -88,6 +108,11 @@ interface GameStore {
   markScoreSubmitted: () => void;
   setTheme: (mode: ThemeMode) => void;
   toggleTheme: () => void;
+
+  /** 포함 기본 토글 변경(다음 게임부터 적용). */
+  setIncludeInAverage: (on: boolean) => void;
+  /** 한 버킷 통계 초기화. */
+  resetAvgBucket: (mode: AvgMode, preset: RulePresetId) => void;
 }
 
 /** index.html 인라인 스크립트가 이미 결정해 둔 값을 단일 출처로 되읽음(중복 로직·깜빡임 방지). */
@@ -123,6 +148,31 @@ function getInitialPreset(): RulePresetId {
 
 const INITIAL_DICE = [1, 2, 3, 4, 5];
 const INITIAL_PRESET = getInitialPreset();
+const INITIAL_INCLUDE = loadIncludeDefault();
+const INITIAL_STATS = loadStats();
+
+/**
+ * 진행 중(미종료)·미기록·순수(헬퍼·되돌리기 미사용)·floor 충족·포함 게임이면
+ * 현재 부분 점수를 solo 버킷에 기록하고 저장한 새 avgStats 를 반환. 아니면 현재 avgStats.
+ * newGame/setRulePreset 진입 시(리셋 직전) 호출 — setRulePreset 은 반드시 전환 전(옛 프리셋)에 호출.
+ */
+function commitOutgoingPartial(s: GameStore): { avgStats: AvgStats; recorded: boolean } {
+  if (
+    s.avgRecorded ||
+    !s.includeThisGame ||
+    s.helperUsedThisGame ||
+    s.undoUsedThisGame ||
+    isGameOver(s.card) ||               // 완료 게임은 완료 경로에서 이미 처리
+    !meetsPartialFloor(filledCount(s.card))
+  ) {
+    return { avgStats: s.avgStats, recorded: false };
+  }
+  const key = bucketKey('solo', s.rulePreset);
+  const score = grandTotal(s.card, s.rules);
+  const next = recordPartial(s.avgStats, key, score);
+  saveStats(next);
+  return { avgStats: next, recorded: true };
+}
 
 export const useGameStore = create<GameStore>((set, get) => ({
   rulePreset: INITIAL_PRESET,
@@ -141,6 +191,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   undoUsedThisGame: false,
   scoreSubmittedThisGame: false,
   theme: getInitialTheme(),
+
+  includeInAverage: INITIAL_INCLUDE,
+  includeThisGame: INITIAL_INCLUDE,
+  avgRecorded: false,
+  recordedAmount: 0,
+  avgStats: INITIAL_STATS,
 
   rerollsLeft: () => ROLLS_PER_TURN - get().rollsUsed,
   canRoll: () => !get().gameOver() && get().rollsUsed < ROLLS_PER_TURN,
@@ -210,12 +266,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const card = yachtMaster
       ? recordMasterYachtBonus(s.card, cat)
       : recordScore(s.card, cat, scoreDice(cat, s.dice, s.rules));
+    const over = isGameOver(card);
+    let avgStats = s.avgStats;
+    let avgRecorded = s.avgRecorded;
+    let recordedAmount = s.recordedAmount;
+    // 완료 순간 1회 기록: 포함 ON·미기록·순수 게임일 때만.
+    if (over && !avgRecorded && s.includeThisGame && !s.helperUsedThisGame && !s.undoUsedThisGame) {
+      const score = grandTotal(card, s.rules);
+      avgStats = recordCompleted(s.avgStats, bucketKey('solo', s.rulePreset), score);
+      avgRecorded = true;
+      recordedAmount = score;
+      saveStats(avgStats);
+    }
     set({
       card,
       dice: [...INITIAL_DICE],
       held: Array(DICE_COUNT).fill(false),
       rollsUsed: 0,
-      resultOpen: isGameOver(card),
+      resultOpen: over,          // 기존 isGameOver(card) 대신 계산해 둔 over 재사용
+      avgStats,
+      avgRecorded,
+      recordedAmount,
       // 되돌리기용으로 기록 직전 상태를 스택에 저장(배열은 복사본).
       history: [
         ...s.history,
@@ -228,6 +299,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const s = get();
     if (s.history.length === 0) return;
     const prev = s.history[s.history.length - 1];
+    // 완료+기록된 게임을 되돌리면 평균에서 정확히 역산.
+    // (undoUsedThisGame 이 참이 되므로 재완료해도 순수성 실패로 재기록되지 않는다.)
+    let avgStats = s.avgStats;
+    let avgRecorded = s.avgRecorded;
+    let recordedAmount = s.recordedAmount;
+    if (avgRecorded && !isGameOver(prev.card)) {
+      avgStats = reverseRecord(s.avgStats, bucketKey('solo', s.rulePreset), s.recordedAmount);
+      saveStats(avgStats);
+      avgRecorded = false;
+      recordedAmount = 0;
+    }
     set({
       card: prev.card,
       dice: [...prev.dice],
@@ -236,10 +318,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       resultOpen: prev.resultOpen,
       history: s.history.slice(0, -1),
       undoUsedThisGame: true,
+      avgStats,
+      avgRecorded,
+      recordedAmount,
     });
   },
 
   newGame: () => {
+    const s = get();
+    const { avgStats } = commitOutgoingPartial(s); // 진행 중이었으면 부분 반영
     set({
       card: createScorecard(),
       dice: [...INITIAL_DICE],
@@ -250,11 +337,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       history: [],
       undoUsedThisGame: false,
       scoreSubmittedThisGame: false,
+      avgStats,
+      includeThisGame: s.includeInAverage, // 시작 고정
+      avgRecorded: false,
+      recordedAmount: 0,
     });
   },
 
   setRulePreset: (id) => {
     if (get().rulePreset === id) return;
+    const s = get();
+    const { avgStats } = commitOutgoingPartial(s); // 반드시 옛 프리셋 버킷에 기록 후 전환
     const preset = RULE_PRESETS[id];
     try {
       localStorage.setItem(PRESET_KEY, id);
@@ -282,6 +375,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       settings: preset.helperSupported
         ? get().settings
         : { ...get().settings, helperEnabled: false },
+      avgStats,
+      includeThisGame: s.includeInAverage,
+      avgRecorded: false,
+      recordedAmount: 0,
     });
   },
 
@@ -311,4 +408,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ theme: mode });
   },
   toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
+
+  setIncludeInAverage: (on) => {
+    saveIncludeDefault(on);
+    set({ includeInAverage: on }); // includeThisGame 은 건드리지 않음 → 다음 게임부터
+  },
+
+  resetAvgBucket: (mode, preset) => {
+    const next = resetBucket(get().avgStats, bucketKey(mode, preset));
+    saveStats(next);
+    set({ avgStats: next });
+  },
 }));
