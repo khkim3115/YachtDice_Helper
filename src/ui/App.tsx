@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { RULE_PRESETS } from '../core/rules';
-import { grandTotal } from '../core/gameState';
+import { filledCount, grandTotal } from '../core/gameState';
+import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 import { useAdvice } from '../store/useAdvice';
 import { Header } from './Header';
@@ -21,6 +22,10 @@ export default function App() {
   const resultOpen = useGameStore((s) => s.resultOpen);
   const setResultOpen = useGameStore((s) => s.setResultOpen);
   const markHelperUsed = useGameStore((s) => s.markHelperUsed);
+  const setScreen = useAppStore((s) => s.setScreen);
+  const newGame = useGameStore((s) => s.newGame);
+  const rollsUsed = useGameStore((s) => s.rollsUsed);
+  const started = filledCount(card) > 0 || rollsUsed > 0;
 
   const advice = useAdvice();
   const total = grandTotal(card, rules);
@@ -45,6 +50,20 @@ export default function App() {
         {gameOver && !resultOpen && (
           <button className="result-btn" onClick={() => setResultOpen(true)}>
             🏁 결과
+          </button>
+        )}
+        {started && !gameOver && (
+          <button
+            className="result-btn quit-btn"
+            title="포기하고 종료"
+            onClick={() => {
+              if (window.confirm('게임을 포기하고 종료할까요?\n진행 중 점수는 평균 규칙(3칸 이상·포함 ON·순수)에 따라 반영됩니다.')) {
+                newGame();          // 현재 부분 점수 커밋 + 새 게임
+                setScreen('home');  // 홈으로 나가 통계 확인
+              }
+            }}
+          >
+            🏳️ 포기
           </button>
         )}
       </Header>

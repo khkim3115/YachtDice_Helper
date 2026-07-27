@@ -1,5 +1,6 @@
 import { RULE_PRESETS } from '../core/rules';
 import type { RulePresetId } from '../core/rules';
+import { averageOf, bucketKey } from '../core/averageStats';
 import { useGameStore } from '../store/gameStore';
 
 const PRESET_ORDER: RulePresetId[] = ['default', 'additional'];
@@ -39,6 +40,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const rulePreset = useGameStore((s) => s.rulePreset);
   const setRulePreset = useGameStore((s) => s.setRulePreset);
   const helperSupported = RULE_PRESETS[rulePreset].helperSupported;
+  const includeInAverage = useGameStore((s) => s.includeInAverage);
+  const setIncludeInAverage = useGameStore((s) => s.setIncludeInAverage);
+  const avgStats = useGameStore((s) => s.avgStats);
+  const resetAvgBucket = useGameStore((s) => s.resetAvgBucket);
+  const bucket = avgStats[bucketKey('solo', rulePreset)];
+  const avg = averageOf(bucket);
 
   return (
     <div className="settings" onClick={onClose}>
@@ -103,6 +110,34 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             on={settings.highlightSuggestion}
             onClick={() => setSettings({ highlightSuggestion: !settings.highlightSuggestion })}
           />
+        </div>
+
+        <div className="toggle">
+          <div className="tinfo">
+            <div className="t-name">평균에 포함</div>
+            <div className="t-desc">시작 시점 기준 적용 · 변경은 다음 게임부터</div>
+          </div>
+          <Switch on={includeInAverage} onClick={() => setIncludeInAverage(!includeInAverage)} />
+        </div>
+
+        <div className="setting-group avg-summary">
+          <div className="t-name">내 평균 ({RULE_PRESETS[rulePreset].ko})</div>
+          <div className="avg-line">
+            {avg === null
+              ? '기록 없음'
+              : `평균 ${Math.round(avg)} · ${bucket.count}판${bucket.partialCount ? ` (미완료 ${bucket.partialCount})` : ''} · 최고 ${bucket.best}`}
+          </div>
+          <button
+            className="ghost-btn"
+            disabled={bucket.count === 0}
+            onClick={() => {
+              if (window.confirm(`'${RULE_PRESETS[rulePreset].ko}' 평균 기록을 초기화할까요?`)) {
+                resetAvgBucket('solo', rulePreset);
+              }
+            }}
+          >
+            통계 초기화
+          </button>
         </div>
 
         {settings.helperEnabled && helperSupported && (

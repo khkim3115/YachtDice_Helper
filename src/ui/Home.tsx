@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { RULE_PRESETS } from '../core/rules';
 import type { RulePresetId } from '../core/rules';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { averageOf, bucketKey } from '../core/averageStats';
 import { useAppStore } from '../store/appStore';
+import { useGameStore } from '../store/gameStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { DownloadCards } from './DownloadCards';
 import { Header } from './Header';
@@ -17,6 +19,10 @@ export function Home() {
   const busy = useMultiplayerStore((s) => s.busy);
   const error = useMultiplayerStore((s) => s.error);
   const clearError = useMultiplayerStore((s) => s.clearError);
+  const avgStats = useGameStore((s) => s.avgStats);
+  const soloPreset = useGameStore((s) => s.rulePreset);
+  const soloBucket = avgStats[bucketKey('solo', soloPreset)];
+  const soloAvg = averageOf(soloBucket);
 
   const [name, setName] = useState(() => localStorage.getItem('yd_mp_name') ?? '');
   const [helperAllowed, setHelperAllowed] = useState(false);
@@ -57,7 +63,11 @@ export function Home() {
           <span className="hs-icon">🎲</span>
           <span className="hs-text">
             <b>혼자 하기</b>
-            <small>최적 EV 헬퍼와 함께 점수 도전</small>
+            <small>
+              {soloAvg === null
+                ? '최적 EV 헬퍼와 함께 점수 도전'
+                : `내 평균 ${Math.round(soloAvg)} · ${soloBucket.count}판 · 최고 ${soloBucket.best}`}
+            </small>
           </span>
         </button>
 
