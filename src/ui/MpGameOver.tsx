@@ -18,13 +18,15 @@ export function MpGameOver() {
   // 이번 게임 점수를 이미 등록했는지(재등록 방지). MpGameOver 는 "홈으로" 전까지 유지되므로 local state 로 충분.
   const [submitted, setSubmitted] = useState(false);
   const [myAvg, setMyAvg] = useState<{ avg: number | null; count: number; best: number } | null>(null);
-  if (!room) return null;
 
   useEffect(() => {
+    if (!room) return;
     recordMpResultIfNeeded();
     const b = loadStats()[bucketKey('multi', room.rulePreset)];
     setMyAvg({ avg: averageOf(b), count: b.count, best: b.best });
-  }, [recordMpResultIfNeeded, room.rulePreset]);
+  }, [room?.rulePreset, recordMpResultIfNeeded]);
+
+  if (!room) return null;
 
   const rules = RULE_PRESETS[room.rulePreset].config;
   const ranked = players
