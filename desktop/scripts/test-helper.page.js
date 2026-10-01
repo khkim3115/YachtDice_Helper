@@ -172,3 +172,89 @@ window.__ydTest.solo = async () => {
   setSoloPreset('default');
   return list;
 };
+
+// ── 단계 governance: 실격 시점·유지·해제, 게임오버·평균·등록 2차 방어 (270×358) ──
+window.__ydTest.governance = async () => {
+  const { $, collector, key, setHelper, soloState, stubFetch } = window.__ydT;
+  const { list, check } = collector();
+  showScreen('solo');
+  setSoloPreset('default');
+  setHelper(false);
+  await helperLoad('default');
+  const ELEVEN = { ones: 3, twos: 6, threes: 9, fours: 12, fives: 15, sixes: 18, choice: 20, fourkind: 20, fullhouse: 20, small: 15, large: 30 };
+  const bucket = () => JSON.stringify(avgStats['solo:default']);
+
+  // a) 굴리기 전 ON→OFF 는 실격 아님(조언이 표시된 적 없음)
+  reset();
+  setHelper(true);
+  setHelper(false);
+  key('Space', ' ');
+  check('굴리기 전 켰다 끄면 실격 아님', helperUsed === false && state.rolled === true);
+  // b) 굴린 상태에서 ON → 조언이 표시되는 순간 실격
+  setHelper(true);
+  check('조언 표시 → helperUsed', helperUsed === true);
+  // c) OFF 해도 유지
+  setHelper(false);
+  check('OFF 후에도 유지', helperUsed === true);
+  // d) 되돌리기로 안 풀림
+  pick(CATS[6]);
+  undo();
+  check('되돌리기 후에도 유지', helperUsed === true && undoUsed === true);
+  // e) 새 게임·룰 전환(reset)으로만 해제
+  $('#new').click();
+  check('새 게임 → 해제', helperUsed === false && undoUsed === false);
+  soloState({ dice: [1, 2, 3, 4, 6], rolls: 2, rolled: true });
+  setHelper(true);
+  check('(룰 전환 전) 실격', helperUsed === true);
+  setSoloPreset('additional');
+  check('룰 전환 → 해제', helperUsed === false);
+  setSoloPreset('default');
+  setHelper(false);
+
+  // f) 게임오버 — 헬퍼 사용 게임: 등록 UI 숨김 + 사유, 평균 미집계 + 배지, submitScore 2차 방어
+  reset();
+  avgIncludeThisGame = true;
+  soloState({ dice: [6, 6, 6, 6, 6], rolls: 2, rolled: true, filled: { ...ELEVEN }, turn: 11 });
+  setHelper(true); // 조언 표시 → 실격
+  check('(게임오버 전) 실격', helperUsed === true);
+  let before = bucket();
+  pick(CATS[11]); // 요트 → 12칸 → gameOver
+  check('게임오버 표시', !$('#over').classList.contains('hidden'));
+  check('등록 UI 숨김', $('#lb-name').style.display === 'none' && $('#lb-submit').style.display === 'none');
+  check('사유: 헬퍼 사용', $('#lb-msg').textContent === '헬퍼 사용 — 리더보드 등록 제외', $('#lb-msg').textContent);
+  check('평균 미집계', avgCounted === false && bucket() === before, bucket());
+  check('평균 배지: 헬퍼', $('#avg-line').textContent.endsWith('평균 미반영(헬퍼)'), $('#avg-line').textContent);
+  const net = stubFetch('submit_score');
+  $('#lb-name').value = 'tester';
+  await submitScore();
+  check('submitScore 2차 방어(네트워크 호출 0)', net.calls === 0, net.calls);
+  net.restore();
+  // g) 헬퍼 + 되돌리기 사유
+  undo(); // 게임오버에서 되돌리기 → 12번째 턴 복귀(undoUsed)
+  pick(CATS[11]);
+  check('사유: 헬퍼·되돌리기', $('#lb-msg').textContent === '헬퍼·되돌리기 사용 — 리더보드 등록 제외', $('#lb-msg').textContent);
+  check('평균 배지: 헬퍼·되돌리기', $('#avg-line').textContent.endsWith('평균 미반영(헬퍼·되돌리기)'), $('#avg-line').textContent);
+  // h) 부분 반영(중도 '새로')도 제외 — 3칸 이상 진행 + 포함 ON 이어도
+  reset();
+  avgIncludeThisGame = true;
+  soloState({ dice: [1, 1, 2, 3, 4], rolls: 2, rolled: true, filled: { ones: 3, twos: 6, threes: 9, fours: 12, fives: 15 }, turn: 5 });
+  check('(부분 반영 전) 실격', helperUsed === true);
+  before = bucket();
+  $('#new').click(); // avgCommitOutgoing → 헬퍼 게임이라 건너뜀
+  check('부분 반영 제외', bucket() === before, bucket());
+  // i) 대조군 — 헬퍼 미사용 게임은 정상(등록 UI 노출 + 평균 반영)
+  setHelper(false);
+  reset();
+  avgIncludeThisGame = true;
+  soloState({ dice: [6, 6, 6, 6, 6], rolls: 2, rolled: true, filled: { ...ELEVEN }, turn: 11 });
+  before = bucket();
+  pick(CATS[11]);
+  check('대조: 등록 UI 노출', $('#lb-name').style.display === '' && $('#lb-msg').textContent === '');
+  check('대조: 평균 반영', avgCounted === true && bucket() !== before, bucket());
+  check('대조: 배지 반영됨', $('#avg-line').textContent.endsWith('평균 반영됨'), $('#avg-line').textContent);
+
+  // 정리
+  reset();
+  setHelper(false);
+  return list;
+};
