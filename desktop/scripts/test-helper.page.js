@@ -380,3 +380,87 @@ window.__ydTest.mp = async () => {
   setHelper(false);
   return list;
 };
+
+// ── 단계 handoff: 솔로↔멀티 화면 전환 — 숨은 솔로 보드 실격 방지 가드, 복귀 시 다시 그리기, 멀티 H 의 범위 ──
+// (최종 리뷰 GOV-1·UX-1·MP-1) 트레이 메뉴 '싱글플레이' 복귀 경로는 yd.onMode → enterSolo().
+window.__ydTest.handoff = async () => {
+  const { $, collector, line, key, setHelper, soloState, marks } = window.__ydT;
+  const { list, check } = collector();
+  check('enterSolo 정의됨(트레이 솔로 복귀 경로)', typeof enterSolo === 'function');
+  if (typeof enterSolo !== 'function') return list;
+  const ROLLED = { dice: [1, 2, 3, 4, 6], rolls: 2, rolled: true };
+  mpUserId = 'u-me';
+  mpPlayers = [
+    { id: 'p0', userId: 'u-me', seat: 0, displayName: '나', isHost: true, connected: true, scorecard: { scores: { ones: 3, twos: 6, choice: 22 } } },
+    { id: 'p1', userId: 'u-op', seat: 1, displayName: '상대', isHost: false, connected: true, scorecard: { scores: {} } },
+  ];
+  recomputeMySeat();
+  const baseRoom = { id: 'r1', code: 'ABC123', status: 'playing', helperAllowed: true, rulePreset: 'default', maxPlayers: 4, hostId: 'u-me', currentSeat: 0, round: 3, dice: [2, 3, 3, 5, 6], held: [false, false, false, false, false], rollsUsed: 1, winnerSeat: null, isTie: false };
+  const goMp = (room) => { mpRoom = { ...baseRoom, ...room }; showScreen('mp-game'); renderMpGame(); };
+  showScreen('solo');
+  setSoloPreset('default');
+  setHelper(false);
+  await helperLoad('default');
+
+  // 1) 멀티에서 H 로 켜도, 숨어 있는 솔로 보드에는 조언이 그려지지 않는다(= 실격 아님). 솔로로 돌아와 실제로 보일 때 실격.
+  reset();
+  soloState(ROLLED);
+  goMp({});
+  key('KeyH', 'h'); // 허용 방 · 내 차례 → ON
+  check('(전제) 멀티 허용 방 내 차례 H → ON', helperOn === true && !line('#mp-helper-line').hidden);
+  check('숨은 솔로 보드: 실격 안 됨', helperUsed === false);
+  check('숨은 솔로 보드: 조언 안 그림', line('#helper-line').hidden && marks('#dice .die') === 'false,false,false,false,false', marks('#dice .die'));
+  enterSolo();
+  let L = line('#helper-line');
+  check('솔로 복귀: ◆ 와 일치하게 조언 표시', !L.hidden && L.act === '1, 2, 3, 4 보관하고 다시 굴리기 · +3.9' && $('#helper-solo').textContent.includes('◆'), L.act);
+  check('솔로 복귀: 실제 표시 시점에 실격', helperUsed === true);
+
+  // 2) 멀티에서 H 로 끄면, 솔로 복귀 시 이전 조언 줄·밑줄이 남지 않는다(◇ 와 일치).
+  reset();
+  soloState(ROLLED); // 헬퍼 ON 상태로 조언 표시
+  check('(전제) 솔로 조언 표시 중', !line('#helper-line').hidden && marks('#dice .die') === 'true,true,true,true,false');
+  goMp({});
+  key('KeyH', 'h'); // → OFF
+  enterSolo();
+  check('솔로 복귀: OFF 면 줄·밑줄 없음', helperOn === false && line('#helper-line').hidden && marks('#dice .die') === 'false,false,false,false,false' && $('#helper-solo').textContent.includes('◇'), marks('#dice .die'));
+
+  // 3) 멀티 H 는 '헬퍼 허용 방의 내 차례'에만 — 비허용 방·상대 차례에선 저장 설정을 몰래 바꾸지 않는다.
+  reset();
+  soloState(ROLLED);
+  goMp({ helperAllowed: false });
+  key('KeyH', 'h');
+  check('비허용 방 H 무시(설정·저장 불변)', helperOn === false && localStorage.getItem('yd_helper') === '0');
+  setHelper(false); // 위 검사 결과와 무관하게 다음 검사를 독립적으로
+  goMp({ currentSeat: 1 });
+  key('KeyH', 'h');
+  check('상대 차례 H 무시(설정·저장 불변)', helperOn === false && localStorage.getItem('yd_helper') === '0');
+  setHelper(false);
+  enterSolo();
+  check('솔로 게임 실격 안 됨(멀티 H 무시됨)', helperUsed === false && line('#helper-line').hidden);
+
+  // 4) 테이블 로드가 멀티 화면에 있는 동안 끝나도 숨은 솔로 보드는 실격되지 않는다(보이는 화면만 재렌더).
+  setHelper(false);
+  helperTables.default = { status: 'idle', advisor: null, promise: null };
+  reset();
+  soloState(ROLLED);
+  const realFetch = window.fetch;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  window.fetch = (url, opts) => (String(url).includes('V.bin') ? gate.then(() => realFetch(url, opts)) : realFetch(url, opts));
+  setHelper(true); // 솔로에서 켬 → 로드 시작(대기 중)
+  check('(전제) 로딩 중 · 아직 실격 아님', helperTables.default.status === 'loading' && helperUsed === false, helperTables.default.status);
+  mpRoom = null;
+  showScreen('mp-lobby');
+  release();
+  await helperTables.default.promise;
+  window.fetch = realFetch;
+  check('로드가 멀티 로비에서 끝나도 숨은 솔로 보드 실격 안 됨', helperTables.default.status === 'ready' && helperUsed === false, helperTables.default.status);
+  enterSolo();
+  check('솔로 복귀 시 조언 표시 → 실격', !line('#helper-line').hidden && helperUsed === true);
+
+  // 정리
+  mpRoom = null; mpPlayers = []; mySeat = null; mpUserId = null;
+  reset();
+  setHelper(false);
+  return list;
+};

@@ -1655,6 +1655,13 @@
         showScreen('mp-lobby'); renderLobby(); setLobbyMsg('');
       }
 
+      // ── 솔로 복귀(트레이 '싱글플레이') ── 화면만 바꾸면 멀티에 있는 동안의 헬퍼 변화(H 토글·테이블 로드 완료)가
+      // 숨은 솔로 보드에 반영되지 않아 헤더 ◇/◆ 와 요약 줄이 어긋난다 → 보이게 된 지금 다시 그린다(#69).
+      function enterSolo() {
+        showScreen('solo');
+        render();
+      }
+
       // ── 멀티 진입(트레이 '멀티플레이') ──
       async function enterMp() {
         if (mpRoom) { showScreen(mpScreenForStatus(mpRoom.status)); renderMp(); return; }
@@ -1742,8 +1749,15 @@
             setSideSeat(seats[idx]);
             return;
           }
-          // 헬퍼 토글(H) — 턴과 무관한 선호 설정. 채팅·입력란 가드 뒤라 타이핑 중엔 발동하지 않는다.
-          if (isHelperKey(e)) { e.preventDefault(); toggleHelper(); return; }
+          // 헬퍼 토글(H) — '헬퍼 허용' 방의 내 차례에만(그때만 헬퍼 줄이 보여 바로 확인 가능). 비허용 방·상대 차례에선
+          // 공용·저장 설정을 몰래 바꾸지 않도록 무시한다(나중에 솔로 게임이 영문도 모른 채 실격되는 일 방지).
+          // 채팅·입력란 가드 뒤라 타이핑 중엔 발동하지 않는다.
+          if (isHelperKey(e)) {
+            e.preventDefault();
+            const r = mpRoom;
+            if (r && r.helperAllowed && r.status === 'playing' && mySeat !== null && mySeat === r.currentSeat) toggleHelper();
+            return;
+          }
           const room = mpRoom;
           if (!room) return;
           const myTurn = mySeat !== null && mySeat === room.currentSeat;
@@ -1762,7 +1776,7 @@
 
       // 트레이 메뉴(싱글/멀티)가 보낸 모드 구독. 창 재표시 때마다 투명도 팝오버는 닫힌 상태로 리셋.
       if (window.yd && window.yd.onMode) {
-        window.yd.onMode((mode) => { closeOpacityPop(); if (mode === 'mp') enterMp(); else showScreen('solo'); });
+        window.yd.onMode((mode) => { closeOpacityPop(); if (mode === 'mp') enterMp(); else enterSolo(); });
       }
 
       // 테마: 메인(settings.json)이 단일 출처 — 로드/변경 시 받아 적용(localStorage 캐시도 동기화).

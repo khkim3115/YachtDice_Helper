@@ -2,7 +2,7 @@
   "name": "yacht-dice-desktop",
   "version": "0.9.0",
   "private": true,
-  "description": "Yacht Dice 트레이 데스크톱 앱 — 자립형 popup.html(솔로·멀티·리더보드)을 시스템 트레이에 상주시키는 Electron 앱. 최적-EV 헬퍼는 웹 엔진(../src/engine)을 빌드 시 vendor/yd-engine.js 로 번들하고 가치 테이블(../public/V*.bin)을 동봉",
+  "description": "Yacht Dice 트레이 앱",
   "main": "main.js",
   "scripts": {
     "build:engine": "node scripts/build-engine.cjs",

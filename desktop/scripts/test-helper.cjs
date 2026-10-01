@@ -11,7 +11,7 @@ const DESKTOP = path.join(__dirname, '..');
 const OUT = process.env.YD_TEST_OUT || path.join(os.tmpdir(), 'yd-test-helper.json');
 const SOLO = [270, 358]; // main.js SOLO_W/SOLO_H
 const MP = [270, 380]; // main.js MP_W/MP_H
-const PHASES = [['solo', SOLO], ['governance', SOLO], ['mp', MP]];
+const PHASES = [['solo', SOLO], ['governance', SOLO], ['mp', MP], ['handoff', MP]];
 
 let done = false;
 function finish(report) {
