@@ -33,7 +33,9 @@ jobs:
       # 메타데이터(latest.yml)와 차등 다운로드 맵(.blockmap)이 release/ 에 생성된다.
       # --publish never: 업로드는 아래 gh 스텝이 전담 — electron-builder 가 자체적으로 v${version}
       # 태그의 릴리스를 만들지 않게 한다(이 저장소 태그 규약은 tray-vX.Y.Z 라 충돌하기 때문).
-      # 데스크톱은 자립형(popup.html + vendor/supabase.js) — 루트 웹 빌드(../dist) 불필요.
+      # 데스크톱 런타임은 자립형(popup.html + vendor/*) — 루트 웹 빌드(../dist)는 불필요. 단 predist 훅이
+      # ../src/engine 을 vendor/yd-engine.js 로 번들하고 ../public/V*.bin 을 extraResources 로 동봉하므로
+      # 저장소 전체 체크아웃(actions/checkout 기본값)이 필요하다(#69).
       - name: Build installer
         run: npm run dist -- --publish never
         env:
@@ -47,6 +49,17 @@ jobs:
           ls -la release/
           test -f release/YachtDice-Tray-Setup.exe || { echo "::error::설치 파일(YachtDice-Tray-Setup.exe)이 없습니다"; exit 1; }
           test -f release/latest.yml || { echo "::error::latest.yml 이 생성되지 않았습니다 — 자동 업데이트가 동작하지 않습니다"; exit 1; }
+
+      # 헬퍼(#69): 엔진 번들(app.asar 안)과 가치 테이블(resources/public — extraResources)이 실제로 패키지됐는지 확인.
+      # electron-builder 는 누락된 files/extraResources 소스를 경고만 하므로 여기서 실패시킨다.
+      - name: Verify helper engine + value tables are packaged
+        shell: bash
+        run: |
+          R=release/win-unpacked/resources
+          test "$(wc -c < "$R/public/V.bin" | tr -d ' ')" = 1048576 || { echo "::error::resources/public/V.bin 누락 또는 크기 불일치"; exit 1; }
+          test "$(wc -c < "$R/public/V.additional.bin" | tr -d ' ')" = 4194304 || { echo "::error::resources/public/V.additional.bin 누락 또는 크기 불일치"; exit 1; }
+          # asar list 는 Windows 에서 '\vendor\yd-engine.js' 처럼 역슬래시로 출력 — 구분자 둘 다 허용.
+          node_modules/.bin/asar list "$R/app.asar" | grep -qxE '[\\/]vendor[\\/]yd-engine\.js' || { echo "::error::app.asar 에 vendor/yd-engine.js 가 없습니다"; exit 1; }
 
       # 두 트리거 모두에서 받을 수 있도록 워크플로 아티팩트로도 업로드(설치 파일 + 업데이트 메타데이터).
       # (path 는 저장소 루트 기준 — defaults.working-directory 는 run 스텝에만 적용)
@@ -100,6 +113,14 @@ jobs:
         run: |
           ls -la release/
           test -f release/YachtDice-Tray.dmg || { echo "::error::YachtDice-Tray.dmg 가 생성되지 않았습니다"; exit 1; }
+
+      - name: Verify helper engine + value tables are packaged
+        run: |
+          R="$(ls -d release/mac*/'Yacht Dice.app'/Contents/Resources 2>/dev/null | head -1)"
+          test -n "$R" || { echo "::error::Yacht Dice.app 을 찾지 못했습니다"; exit 1; }
+          test "$(wc -c < "$R/public/V.bin" | tr -d ' ')" = 1048576 || { echo "::error::Resources/public/V.bin 누락 또는 크기 불일치"; exit 1; }
+          test "$(wc -c < "$R/public/V.additional.bin" | tr -d ' ')" = 4194304 || { echo "::error::Resources/public/V.additional.bin 누락 또는 크기 불일치"; exit 1; }
+          node_modules/.bin/asar list "$R/app.asar" | grep -qxE '[\\/]vendor[\\/]yd-engine\.js' || { echo "::error::app.asar 에 vendor/yd-engine.js 가 없습니다"; exit 1; }
 
       - name: Upload dmg as workflow artifact
         uses: actions/upload-artifact@v7

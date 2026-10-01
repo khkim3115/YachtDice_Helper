@@ -189,9 +189,22 @@ function createWindow() {
         await new Promise((r) => setTimeout(r, 200));
         const after = destroyed ? 'DESTROYED' : await js('JSON.stringify({rolls:state.rolls,rolled:state.rolled})');
         console.log('[yd] persist-test before:', before, '| afterEscHide destroyed:', destroyed, 'wasHidden:', !visible, '| after:', after);
+        // 헬퍼(#69) — 실제 main.js 경로(dev: 저장소 public/, 설치본: resources/public)에서 테이블 로드·알려진 추천값 확인.
+        const helperRaw = destroyed ? 'DESTROYED' : await js(`(async () => {
+          const r = { engine: typeof YDEngine === 'object' };
+          for (const p of ['default', 'additional']) { await helperLoad(p); r[p] = helperTables[p].status; }
+          const efs = (p, card, dice, n) => { const a = helperTables[p].advisor; return a ? Math.round(a.advise(card, dice, n).expectedFinalScore * 100) / 100 : null; };
+          r.defaultEfs = efs('default', { scores: {}, masterCells: [] }, [1, 2, 3, 4, 6], 2);
+          r.additionalEfs = efs('additional', { scores: { yacht: 50, fourKind: 24 }, masterCells: ['sixes'] }, [2, 3, 4, 5, 5], 1);
+          r.ok = r.engine && r.default === 'ready' && r.additional === 'ready' && r.defaultEfs === 188.93 && r.additionalEfs === 357.11;
+          return JSON.stringify(r);
+        })()`);
+        let helperResult;
+        try { helperResult = JSON.parse(helperRaw); } catch { helperResult = { ok: false, raw: String(helperRaw) }; }
+        console.log('[yd] helper-test', JSON.stringify(helperResult));
         // Windows GUI 앱은 부모 셸 stdout 에 로그가 안 잡혀, 결과를 파일로도 남긴다(YD_SMOKE_OUT 지정 시).
         if (process.env.YD_SMOKE_OUT) {
-          const out = { opacity: opResult, drag: dragResult, persist: { before, destroyed, wasHidden: !visible, after } };
+          const out = { opacity: opResult, drag: dragResult, persist: { before, destroyed, wasHidden: !visible, after }, helper: helperResult };
           try { fs.writeFileSync(process.env.YD_SMOKE_OUT, JSON.stringify(out, null, 2)); } catch { /* 무시 */ }
         }
         app.isQuitting = true;
@@ -414,6 +427,7 @@ function resetPanelPosition() {
 // (멀티 게임 중 자동 재시작으로 방 상태가 유실되는 것을 막기 위해 autoInstallOnAppQuit=false.)
 function setupAutoUpdater() {
   if (!app.isPackaged) return; // app.isPackaged 가 false 면 비활성(개발·스모크 포함) — 설치본에서만 동작
+  if (process.env.YD_SMOKE) return; // 스모크(패키지 exe 포함)는 업데이트 확인·다운로드 안 함 — 오프라인·결정적 실행.
   // macOS 는 코드서명+공증 없이는 electron-updater 가 동작하지 않는다($99 미사용) → 비활성.
   // mac 신버전은 수동 .dmg 재다운로드(웹 홈 다운로드 카드)로 안내한다.
   if (process.platform !== 'win32') return;
