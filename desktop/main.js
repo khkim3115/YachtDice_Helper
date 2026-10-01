@@ -414,6 +414,7 @@ function resetPanelPosition() {
 // (멀티 게임 중 자동 재시작으로 방 상태가 유실되는 것을 막기 위해 autoInstallOnAppQuit=false.)
 function setupAutoUpdater() {
   if (!app.isPackaged) return; // app.isPackaged 가 false 면 비활성(개발·스모크 포함) — 설치본에서만 동작
+  if (process.env.YD_SMOKE) return; // 스모크(패키지 exe 포함)는 업데이트 확인·다운로드 안 함 — 오프라인·결정적 실행.
   // macOS 는 코드서명+공증 없이는 electron-updater 가 동작하지 않는다($99 미사용) → 비활성.
   // mac 신버전은 수동 .dmg 재다운로드(웹 홈 다운로드 카드)로 안내한다.
   if (process.platform !== 'win32') return;

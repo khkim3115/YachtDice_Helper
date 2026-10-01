@@ -2,15 +2,19 @@
   "name": "yacht-dice-desktop",
   "version": "0.9.0",
   "private": true,
-  "description": "Yacht Dice 트레이 데스크톱 앱 — 웹 빌드(../dist)를 감싸 시스템 트레이에 상주시키는 Electron 래퍼",
+  "description": "Yacht Dice 트레이 데스크톱 앱 — 자립형 popup.html(솔로·멀티·리더보드)을 시스템 트레이에 상주시키는 Electron 앱. 최적-EV 헬퍼는 웹 엔진(../src/engine)을 빌드 시 vendor/yd-engine.js 로 번들하고 가치 테이블(../public/V*.bin)을 동봉",
   "main": "main.js",
   "scripts": {
+    "build:engine": "node scripts/build-engine.cjs",
+    "prestart": "npm run build:engine",
     "start": "electron .",
+    "predist": "npm run build:engine",
     "dist": "electron-builder"
   },
   "devDependencies": {
     "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "esbuild": "0.28.2"
   },
   "build": {
     "appId": "com.khkim.yachtdice",
@@ -23,12 +27,18 @@
       "preload.js",
       "popup.html",
       "vendor/supabase.js",
+      "vendor/yd-engine.js",
       "package.json"
     ],
     "extraResources": [
       {
         "from": "build/icon.png",
         "to": "icon.png"
+      },
+      {
+        "from": "../public",
+        "to": "public",
+        "filter": ["V.bin", "V.additional.bin"]
       }
     ],
     "afterPack": "scripts/adhoc-sign.cjs",
