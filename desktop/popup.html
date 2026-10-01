@@ -231,8 +231,19 @@
 
       .avg-line { font-size: 12px; color: var(--mut); margin: 6px 0; }
       .avg-inc { font-size: 12px; color: var(--mut); display: flex; gap: 6px; align-items: center; justify-content: center; }
+
+      /* ── 헬퍼(최적 EV, #69) — 무채색만. 추천 보관 = 주사위 밑줄, 추천 기록 칸 = 진한 테두리, 요약 1줄 ── */
+      .die.rec::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 3px; height: 2px; border-radius: 1px; background: var(--emph); }
+      .cat.rec, .cat.master.rec { border-color: var(--emph); }
+      .helper-line { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 18px; padding: 2px 1px 1px; font-size: 10px; color: var(--emph); border-top: 1px dashed var(--line); }
+      .helper-line.muted { color: var(--mut); }
+      .helper-line .act { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .helper-line .exp { flex: none; color: var(--mut); font-variant-numeric: tabular-nums; }
+      .helper-toggle.on { color: var(--emph); }
     </style>
     <script src="./vendor/supabase.js"></script>
+    <!-- 헬퍼 엔진(#69) — 웹 src/engine 번들(npm run build:engine 생성, gitignore). 없으면 헬퍼만 오류 표시. -->
+    <script src="./vendor/yd-engine.js"></script>
   </head>
   <body>
     <div id="app">
@@ -241,6 +252,7 @@
         <div class="top-btns">
           <button class="x opacity-toggle" id="op-solo" title="투명도" tabindex="-1">🔅</button>
           <button class="x theme-toggle" id="theme-solo" title="라이트 모드로" tabindex="-1">☀️</button>
+          <button class="x helper-toggle" id="helper-solo" title="헬퍼 켜기 (H)" tabindex="-1" aria-pressed="false"><span class="k">H</span>◇</button>
           <button class="x" id="lb-open" title="리더보드" tabindex="-1">🏆</button>
           <button class="x" id="close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
         </div>
@@ -258,6 +270,7 @@
         <span id="turn">1 / 12</span>
         <button class="new" id="new" title="새로" tabindex="-1">↺ 새로</button>
       </div>
+      <div class="helper-line hidden" id="helper-line"><span class="act"></span><span class="exp"></span></div>
     </div>
 
     <!-- ── 멀티플레이 컨테이너(솔로일 땐 hidden) ── -->
@@ -473,10 +486,166 @@
       // undoUsed 실격이 풀리거나 history가 자기 자신을 포함해 무한 성장하기 때문(웹 store와 동일 원칙).
       let history = [];     // 기록 직전 게임상태 스냅샷 스택.
       let undoUsed = false; // 이번 게임에서 되돌리기를 한 번이라도 썼는지(리더보드 실격).
+      // 이번 게임에 헬퍼 조언이 '표시'된 적 있는지(리더보드·평균 제외, 웹 helperUsedThisGame 대응).
+      // undoUsed 와 같은 이유로 state 밖 — 되돌리기 스냅샷 복원으로 풀리면 안 된다. reset() 에서만 해제.
+      let helperUsed = false;
+
+      // ── 헬퍼(최적 EV, #69) — 웹 엔진 번들(vendor/yd-engine.js → 전역 YDEngine)을 그대로 쓴다 ──
+      // 엔진 카테고리 id = 웹 CATEGORY_IDS 순서(= V.bin 비트 인덱스)이며 CATS 와 인덱스 1:1 대응.
+      // (2번째 스크립트의 TO_SERVER 는 이 스크립트의 첫 render() 시점에 아직 없으므로 따로 둔다.)
+      const ENGINE_IDS = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'fourKind', 'fullHouse', 'smallStraight', 'largeStraight', 'yacht'];
+      const HELPER_KEY = 'yd_helper'; // 헬퍼 ON/OFF 기억('1'/'0', 첫 실행 OFF) — 솔로·멀티 공용
+      let helperOn = (function () { try { return localStorage.getItem(HELPER_KEY) === '1'; } catch (_) { return false; } })();
+      // 프리셋별 가치 테이블(설치본: extraResources → resources/public, dev: 저장소 public/ — 같은 상대 URL).
+      // 테이블↔룰 짝은 절대 교차 금지(createAdvisor 는 검증하지 않음). sanity = 빈 카드 상태값(룰/테이블 뒤바뀜 감지).
+      const HELPER_TABLE = {
+        default: { url: '../public/V.bin', count: 'STATE_COUNT', rules: 'DEFAULT_RULES', sanity: [0, 191.7609] },
+        additional: { url: '../public/V.additional.bin', count: 'STATE_COUNT_ADDITIONAL', rules: 'ADDITIONAL_RULES', sanity: [1, 227.2057] },
+      };
+      const helperTables = {
+        default: { status: 'idle', advisor: null, promise: null },
+        additional: { status: 'idle', advisor: null, promise: null },
+      };
+      // 테이블 지연 로드(프리셋당 1회). 완료되면 보이는 화면을 다시 그린다. file:// 에서 누락 파일은 404 가 아니라
+      // TypeError 로 reject 되므로 catch 로 'error' 처리 — 게임은 계속 동작한다.
+      function helperLoad(preset) {
+        const t = helperTables[preset];
+        if (t.promise) return t.promise;
+        const spec = HELPER_TABLE[preset];
+        t.status = 'loading';
+        t.promise = (async () => {
+          const E = window.YDEngine;
+          if (!E) throw new Error('엔진 번들(vendor/yd-engine.js) 없음');
+          if (E.CATEGORY_IDS.join() !== ENGINE_IDS.join()) throw new Error('카테고리 순서 불일치');
+          const res = await fetch(spec.url);
+          if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + spec.url);
+          const V = new Float32Array(await res.arrayBuffer());
+          if (V.length !== E[spec.count]) throw new Error('테이블 크기 불일치: ' + V.length);
+          if (!(Math.abs(V[spec.sanity[0]] - spec.sanity[1]) < 0.01)) throw new Error('테이블 값 점검 실패');
+          const advisor = E.createAdvisor(V, E[spec.rules]);
+          advisor.advise({ scores: {}, masterCells: [] }, [1, 2, 3, 4, 5], 2); // JIT 워밍업(첫 굴림 지연 방지)
+          t.advisor = advisor;
+          t.status = 'ready';
+        })()
+          .catch((e) => { console.error('[helper]', e); t.status = 'error'; })
+          .then(helperRerender);
+        return t.promise;
+      }
+      // 보이는 화면만 다시 그린다 — 숨은 솔로 보드에 조언이 '표시'돼 실격되는 일을 막는다.
+      function helperRerender() {
+        if (!document.getElementById('app').classList.contains('hidden')) render();
+        else if (typeof currentScreenName === 'function' && currentScreenName() === 'mp-game') renderMpGame();
+      }
+      // 값 기준 메모 — 같은 프리셋·카드·주사위·남은 굴림이면 재계산하지 않는다(멀티는 이벤트마다 객체가 새로 생김).
+      let helperMemo = { key: '', adv: null };
+      // 조언 계산. 준비 안 됨·입력 비정상·카드 완료면 null. 엔진 예외는 삼켜 render 를 절대 깨지 않는다.
+      function helperAdvise(preset, card, dice, rerollsLeft) {
+        const t = helperTables[preset];
+        if (!t || t.status !== 'ready') return null;
+        if (!Array.isArray(dice) || dice.length !== 5 || !dice.every((v) => Number.isInteger(v) && v >= 1 && v <= 6)) return null;
+        if (![0, 1, 2].includes(rerollsLeft)) return null;
+        if (Object.keys(card.scores).length + card.masterCells.length >= 12) return null;
+        const key = preset + '|' + JSON.stringify(card) + '|' + dice.join(',') + '|' + rerollsLeft;
+        if (helperMemo.key !== key) {
+          let adv = null;
+          try { adv = t.advisor.advise(card, dice, rerollsLeft); } catch (e) { console.error('[helper]', e); }
+          helperMemo = { key, adv };
+        }
+        return helperMemo.adv;
+      }
+      // 트레이 솔로 상태 → 엔진 Scorecard. 요트의 달인 칸은 filled[id]=100 + master 로 저장되므로 masterCells 에만
+      // 넣고 scores 에서는 뺀다(넣으면 상단 소계·총점이 오염돼 '그럴듯하지만 틀린' 조언이 된다).
+      function soloEngineCard() {
+        const scores = {}, masterCells = [];
+        CATS.forEach((c, i) => {
+          if (state.master.includes(c.id)) masterCells.push(ENGINE_IDS[i]);
+          else if (state.filled[c.id] != null) scores[ENGINE_IDS[i]] = state.filled[c.id];
+        });
+        return { scores, masterCells };
+      }
+      // 추천 보관 표시는 위치가 아닌 '눈 다중집합' 기준 — 같은 눈을 이미 고정한 주사위를 우선 표시.
+      function recHoldMarks(adv, dice, held) {
+        const need = [0, 0, 0, 0, 0, 0, 0];
+        adv.holdMask.forEach((h, i) => { if (h) need[dice[i]]++; });
+        const mark = [false, false, false, false, false];
+        [true, false].forEach((wantHeld) => dice.forEach((v, i) => {
+          if (!mark[i] && need[v] > 0 && !!held[i] === wantHeld) { mark[i] = true; need[v]--; }
+        }));
+        return mark;
+      }
+      // 요약 문구 — 웹 HelperPanel 과 같은 우선순위(요트의 달인 > 지금 기록 > 보관 후 다시 굴리기).
+      function helperText(adv, dice) {
+        const idx = ENGINE_IDS.indexOf(adv.bestCategory);
+        const nm = idx >= 0 ? CATS[idx].nm : String(adv.bestCategory);
+        if (adv.windfall && adv.windfall.active) return '요트의 달인! ' + nm + ' 칸에 기록 · +' + adv.windfall.bonus;
+        if (adv.recommendScoreNow) return '지금 ' + nm + '에 기록 · ' + adv.bestCategoryScoreNow + '점';
+        const kept = dice.filter((_, i) => adv.holdMask[i]);
+        return (kept.length ? kept.join(', ') + ' 보관하고 다시 굴리기' : '모두 다시 굴리기') + ' · +' + adv.evGainFromReroll.toFixed(1);
+      }
+      // 대기 문구(흐림). rolled = 이번 턴에 굴렸는지.
+      function helperIdleText(status, rolled) {
+        if (status === 'error') return '헬퍼 데이터를 불러오지 못했습니다';
+        if (status !== 'ready') return '헬퍼 데이터 로딩 중…';
+        return rolled ? '추천을 계산하지 못했습니다' : '주사위를 굴리면 최적의 수를 추천해 드려요.';
+      }
+      // 요약 줄 갱신. text 가 null 이면 숨김.
+      function setHelperLine(el, text, exp, muted) {
+        el.classList.toggle('hidden', text == null);
+        if (text == null) return;
+        el.classList.toggle('muted', !!muted);
+        el.querySelector('.act').textContent = text;
+        el.querySelector('.exp').textContent = exp || '';
+        el.title = exp ? text + ' · ' + exp : text; // 잘렸을 때 전체 문구
+      }
+      // 추천을 보드에 덧입힌다(render 가 주사위·칸을 매번 새로 그리므로 그 뒤에 호출).
+      function decorateAdvice(adv, dice, held, diceSel, catSel) {
+        if ((adv.windfall && adv.windfall.active) || adv.recommendScoreNow) {
+          const c = document.querySelectorAll(catSel)[ENGINE_IDS.indexOf(adv.bestCategory)];
+          if (c) c.classList.add('rec');
+        } else {
+          const m = recHoldMarks(adv, dice, held);
+          document.querySelectorAll(diceSel).forEach((d, i) => { if (m[i]) d.classList.add('rec'); });
+        }
+      }
+      function syncHelperButtons() {
+        document.querySelectorAll('.helper-toggle').forEach((b) => {
+          b.classList.toggle('on', helperOn);
+          b.innerHTML = '<span class="k">H</span>' + (helperOn ? '◆' : '◇');
+          b.title = helperOn ? '헬퍼 끄기 (H)' : '헬퍼 켜기 (H) — 조언이 표시된 게임은 리더보드·평균 제외';
+          b.setAttribute('aria-pressed', helperOn ? 'true' : 'false');
+        });
+      }
+      function toggleHelper() {
+        helperOn = !helperOn;
+        try { localStorage.setItem(HELPER_KEY, helperOn ? '1' : '0'); } catch (_) {}
+        syncHelperButtons();
+        helperRerender();
+      }
+      // H 단축키 — 물리 키(e.code) 기준이라 한글 IME 에서도 동작. Ctrl/Alt/Meta 조합은 무시.
+      // 비QWERTY 배열에서 이 키가 칸/주사위 단축키 문자를 내면(예: Workman 의 'y' = 식스) 기존 단축키가 우선.
+      function isHelperKey(e) {
+        if (e.code !== 'KeyH' || e.ctrlKey || e.altKey || e.metaKey) return false;
+        const k = String(e.key || '').toLowerCase();
+        return !CAT_KEYS.includes(k) && !HOLD_KEYS.includes(k);
+      }
+      // render() 끝에서 호출. 조언이 '실제로 표시되는 순간' helperUsed 를 켠다(웹 App.tsx 의 markHelperUsed 와 같은 시점).
+      function renderHelper() {
+        const line = document.getElementById('helper-line');
+        if (!line) return;
+        if (!helperOn || state.turn >= 12) { setHelperLine(line, null); return; }
+        helperLoad(soloPreset); // 처음이면 로드 시작(완료 시 helperRerender)
+        const adv = state.rolled ? helperAdvise(soloPreset, soloEngineCard(), state.dice, state.rolls) : null;
+        if (!adv) { setHelperLine(line, helperIdleText(helperTables[soloPreset].status, state.rolled), '', true); return; }
+        helperUsed = true;
+        decorateAdvice(adv, state.dice, state.held, '#dice .die', '#cats .cat');
+        setHelperLine(line, helperText(adv, state.dice), '예상 ' + Math.round(adv.expectedFinalScore));
+      }
+
       function reset() {
         state = { dice: [1, 1, 1, 1, 1], held: [false, false, false, false, false], rolls: 3, rolled: false, filled: {}, master: [], turn: 0 };
         history = [];
         undoUsed = false;
+        helperUsed = false;
         avgIncludeThisGame = avgIncludeDefault;
         avgCounted = false; avgRecordedAmount = 0;
         document.getElementById('over').classList.add('hidden');
@@ -660,6 +829,7 @@
         document.getElementById('total').innerHTML =
           `${total()}<small> 점</small>` + (bn ? ` <span class="bonus">+${bn}</span>` : '');
         document.getElementById('turn').textContent = `${Math.min(state.turn + 1, 12)} / 12`;
+        renderHelper(); // 헬퍼 요약 줄·표시(#69) — #dice/#cats 를 다시 그린 뒤 덧입힌다.
       }
 
       function renderAvg() {
@@ -686,6 +856,8 @@
       // 닫지 않고 숨기기만(상태 유지). preload 미주입 시 close 로 폴백.
       const hidePopup = () => (window.yd ? window.yd.hide() : window.close());
       document.getElementById('close').onclick = hidePopup;
+      document.getElementById('helper-solo').onclick = toggleHelper;
+      syncHelperButtons(); // 저장된 헬퍼 ON/OFF 를 헤더 버튼에 반영
 
       // ── 테마 토글(☀️/🌙) — 모든 화면 헤더의 .theme-toggle 버튼 공용 ──
       function applyTheme(mode) {
@@ -855,6 +1027,8 @@
         if (di >= 0) { e.preventDefault(); toggleHold(di); return; }
         const ci = CAT_KEYS.indexOf(e.key.toLowerCase());
         if (ci >= 0) { e.preventDefault(); pick(CATS[ci]); return; }
+        // 헬퍼 토글(H) — 칸/주사위 키 뒤에 둬 비QWERTY 배열의 기존 단축키를 빼앗지 않는다(isHelperKey 참고).
+        if (isHelperKey(e)) { e.preventDefault(); toggleHelper(); return; }
       });
 
       reset();
