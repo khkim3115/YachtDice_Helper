@@ -258,3 +258,125 @@ window.__ydTest.governance = async () => {
   setHelper(false);
   return list;
 };
+
+// ── 단계 mp: 표시 조건·값·메모·H 키·레이아웃·로비 줄·방 만들기·게임오버 게이트 (270×380) ──
+window.__ydTest.mp = async () => {
+  const { $, collector, line, fits, sizeOf, key, setHelper, marks, stubFetch } = window.__ydT;
+  const { list, check } = collector();
+  setHelper(true);
+  await helperLoad('default');
+  helperUsed = false; // 멀티가 솔로 실격 플래그를 건드리지 않는지 확인용
+  // 서버 응답 모양 그대로 상태 주입(네트워크 없음)
+  mpUserId = 'u-me';
+  mpPlayers = [
+    { id: 'p0', userId: 'u-me', seat: 0, displayName: '나', isHost: true, connected: true, scorecard: { scores: { ones: 3, twos: 6, choice: 22 } } },
+    { id: 'p1', userId: 'u-op', seat: 1, displayName: '상대', isHost: false, connected: true, scorecard: { scores: {} } },
+  ];
+  recomputeMySeat();
+  const baseRoom = { id: 'r1', code: 'ABC123', status: 'playing', helperAllowed: true, rulePreset: 'default', maxPlayers: 4, hostId: 'u-me', currentSeat: 0, round: 3, dice: [2, 3, 3, 5, 6], held: [false, false, false, false, false], rollsUsed: 1, winnerSeat: null, isTie: false };
+  mpRoom = { ...baseRoom };
+  showScreen('mp-game');
+  renderMpGame();
+
+  // 1) 허용 방 + 내 차례 + ON → 조언(엔진: 3·3 보관, +10.484, 166.7858)
+  let L = line('#mp-helper-line');
+  check('멀티 조언 문구', !L.hidden && L.act === '3, 3 보관하고 다시 굴리기 · +10.5', L.act);
+  check('멀티 예상 167', L.exp === '예상 167', L.exp);
+  check('멀티 추천 보관 밑줄', marks('#mp-dice .die') === 'false,true,true,false,false', marks('#mp-dice .die'));
+  check('멀티는 솔로 helperUsed 안 건드림', helperUsed === false);
+  // 2) 메모 유지 — Realtime 리페치처럼 같은 값의 새 객체면 재계산 없음
+  const advBefore = helperMemo.adv;
+  mpRoom = JSON.parse(JSON.stringify(mpRoom));
+  mpPlayers = JSON.parse(JSON.stringify(mpPlayers));
+  renderMpGame();
+  check('메모 유지(같은 값 → 같은 조언 객체)', helperMemo.adv === advBefore && line('#mp-helper-line').act === '3, 3 보관하고 다시 굴리기 · +10.5');
+  // 3) OFF → 흐린 안내, 표시자 없음
+  setHelper(false);
+  L = line('#mp-helper-line');
+  check('OFF 안내', !L.hidden && L.muted && L.act === '헬퍼 허용 방 · H 로 켜기', L.act);
+  check('OFF 면 표시자 없음', document.querySelectorAll('#mp-dice .die.rec, #mp-cats .cat.rec').length === 0);
+  // 4) H 키(멀티 핸들러) — 토글, 입력란 포커스 중엔 무시
+  key('KeyH', 'h');
+  check('멀티 H → ON', helperOn === true);
+  const tmp = document.createElement('input');
+  $('#mp-game').appendChild(tmp);
+  tmp.focus();
+  key('KeyH', 'h');
+  check('입력란 포커스 중 H 무시', helperOn === true);
+  tmp.remove();
+  // 4b) 물리 H 가 'y' 를 내면(비QWERTY) 멀티에서도 식스 기록 단축키 우선(헬퍼 토글 안 함) — 기록 RPC 는 스텁
+  const realPick = mpPick;
+  let picked = null;
+  mpPick = (cat) => { picked = cat.id; };
+  key('KeyH', 'y');
+  mpPick = realPick;
+  check("멀티 물리 H 가 'y' → 식스 기록(토글 안 함)", picked === 'sixes' && helperOn === true, String(picked));
+  // 5) 표시 조건 — 상대 차례·비허용 방·굴리기 전
+  mpRoom = { ...baseRoom, currentSeat: 1 }; renderMpGame();
+  check('상대 차례 숨김', line('#mp-helper-line').hidden);
+  mpRoom = { ...baseRoom, helperAllowed: false }; renderMpGame();
+  check('비허용 방 숨김', line('#mp-helper-line').hidden);
+  mpRoom = { ...baseRoom, rollsUsed: 0, dice: [] }; renderMpGame();
+  check('굴리기 전 안내', line('#mp-helper-line').act === '주사위를 굴리면 최적의 수를 추천해 드려요.', line('#mp-helper-line').act);
+  // 6) 레이아웃 — 내 차례 + 헬퍼 줄 + 매우 긴 원시 오류(3줄 제한), 두 테마
+  mpRoom = { ...baseRoom }; renderMpGame();
+  setGameMsg('upstream connect error or disconnect/reset before headers. retried and the latest reset reason: connection termination. '.repeat(4));
+  for (const theme of ['dark', 'light']) {
+    document.documentElement.dataset.theme = theme;
+    check(`멀티 레이아웃 ${theme}: 스크롤 없음`, fits() && !line('#mp-helper-line').hidden, sizeOf());
+  }
+  document.documentElement.dataset.theme = 'dark';
+  setGameMsg('');
+  // 7) 대기실 규칙 줄(모든 방에 헬퍼 허용 여부)
+  showScreen('mp-lobby');
+  mpRoom = { ...baseRoom, status: 'lobby' }; renderLobby();
+  check('대기실: 기본 룰 · 헬퍼 허용', $('#mp-rule-line').textContent === '기본 룰 · 헬퍼 허용', $('#mp-rule-line').textContent);
+  mpRoom = { ...baseRoom, status: 'lobby', helperAllowed: false }; renderLobby();
+  check('대기실: 기본 룰 · 헬퍼 비허용', $('#mp-rule-line').textContent === '기본 룰 · 헬퍼 비허용', $('#mp-rule-line').textContent);
+  mpRoom = { ...baseRoom, status: 'lobby', helperAllowed: false, rulePreset: 'additional' }; renderLobby();
+  check('대기실: 추가 룰 · 헬퍼 비허용', $('#mp-rule-line').textContent === '추가 룰 · 헬퍼 비허용', $('#mp-rule-line').textContent);
+  // 8) 방 만들기 칩 + create_room 파라미터(네트워크 없이 함수 스텁)
+  mpRoom = null; renderLobby();
+  const chip = $('#mp-helper-toggle');
+  check('칩 기본: 헬퍼 비허용', chip.textContent === '헬퍼 비허용' && !chip.disabled, chip.textContent);
+  chip.click();
+  check('칩 클릭: 헬퍼 허용', chip.textContent === '헬퍼 허용' && mpCreateHelper === true, chip.textContent);
+  $('#mp-rule-toggle').click(); // → 추가 룰
+  check('추가 룰: 칩 비활성·비허용', chip.disabled && chip.textContent === '헬퍼 비허용 (추가 룰)' && mpCreateHelper === false, chip.textContent);
+  $('#mp-rule-toggle').click(); // → 기본 룰
+  check('기본 룰 복귀: 칩 활성·비허용', !chip.disabled && chip.textContent === '헬퍼 비허용', chip.textContent);
+  const saved = { ensureAnon, rpc, enterRoom };
+  let call = null;
+  ensureAnon = async () => 'u-me';
+  rpc = async (name, p) => { call = { name, p }; return { room_id: 'r9', code: 'ZZZ999' }; };
+  enterRoom = async () => {};
+  $('#mp-name').value = '테스터';
+  chip.click(); // 허용
+  await mpCreate();
+  check('create_room: 허용 전달', !!call && call.name === 'create_room' && call.p.p_helper_allowed === true && call.p.p_rule_preset === 'default', JSON.stringify(call));
+  $('#mp-rule-toggle').click(); // 추가 룰 → 칩 강제 비허용
+  await mpCreate();
+  check('create_room: 추가 룰은 false', !!call && call.p.p_helper_allowed === false && call.p.p_rule_preset === 'additional', JSON.stringify(call));
+  $('#mp-rule-toggle').click(); // 기본 룰로 원복
+  ensureAnon = saved.ensureAnon; rpc = saved.rpc; enterRoom = saved.enterRoom;
+  try { localStorage.removeItem('yd_mp_code'); } catch (_) {}
+  // 9) 게임오버 — 허용 방은 등록 차단 + 2차 방어, 비허용 방은 정상
+  mpRoom = { ...baseRoom, status: 'finished', winnerSeat: 0 };
+  showScreen('mp-over'); initMpOver(); renderMpOver();
+  check('멀티 등록 UI 숨김', $('#mp-lb-name').style.display === 'none' && $('#mp-lb-submit').style.display === 'none');
+  check('멀티 사유 문구', $('#mp-lb-msg').textContent === '헬퍼 허용 방 — 리더보드 등록 제외', $('#mp-lb-msg').textContent);
+  const net = stubFetch('submit_score');
+  $('#mp-lb-name').value = 'tester';
+  await mpSubmitScore();
+  check('mpSubmitScore 2차 방어(네트워크 호출 0)', net.calls === 0, net.calls);
+  net.restore();
+  mpRoom = { ...baseRoom, status: 'finished', winnerSeat: 0, helperAllowed: false };
+  initMpOver();
+  check('비허용 방: 등록 UI 노출', $('#mp-lb-name').style.display === '' && $('#mp-lb-submit').style.display === '' && $('#mp-lb-msg').textContent === '');
+
+  // 정리 — 솔로로 복귀
+  mpRoom = null; mpPlayers = []; mySeat = null; mpUserId = null;
+  showScreen('solo');
+  setHelper(false);
+  return list;
+};

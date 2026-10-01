@@ -240,6 +240,8 @@
       .helper-line .act { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .helper-line .exp { flex: none; color: var(--mut); font-variant-numeric: tabular-nums; }
       .helper-toggle.on { color: var(--emph); }
+      /* 헬퍼 줄로 줄어든 멀티 세로 예산 보호 — 미매핑 원시 오류가 길어도 3줄까지만(전체 문구는 title) */
+      #mp-game-msg { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
     </style>
     <script src="./vendor/supabase.js"></script>
     <!-- 헬퍼 엔진(#69) — 웹 src/engine 번들(npm run build:engine 생성, gitignore). 없으면 헬퍼만 오류 표시. -->
@@ -289,6 +291,7 @@
         <div id="mp-entry" class="mp-form">
           <input class="lb-input" id="mp-name" maxlength="24" placeholder="닉네임" />
           <button class="lb-btn rule-chip" id="mp-rule-toggle" title="방 규칙 전환" tabindex="-1">기본 룰</button>
+          <button class="lb-btn rule-chip" id="mp-helper-toggle" title="이 방에서 헬퍼 허용 — 방장 선택, 기본 룰만(허용 방은 리더보드 등록 제외)" tabindex="-1">헬퍼 비허용</button>
           <button class="lb-btn" id="mp-create" tabindex="-1">방 만들기</button>
           <div class="mp-or">— 또는 —</div>
           <input class="lb-input" id="mp-code" maxlength="6" placeholder="방 코드" />
@@ -326,6 +329,7 @@
             <span id="mp-round">1 / 12</span>
             <span class="mp-hint" title="상대 점수 보기"><span class="k">`</span> 상대</span>
           </div>
+          <div class="helper-line hidden" id="mp-helper-line"><span class="act"></span><span class="exp"></span></div>
           <div class="lb-msg" id="mp-game-msg"></div>
         </div>
         <div class="mp-side hidden" id="mp-side"></div>
@@ -1257,7 +1261,8 @@
       // ── 렌더: 로비 ──
       function setLobbyMsg(t) { const e = document.getElementById('mp-msg'); if (e) e.textContent = t || ''; }
       function setRoomMsg(t) { const e = document.getElementById('mp-room-msg'); if (e) e.textContent = t || ''; }
-      function setGameMsg(t) { const e = document.getElementById('mp-game-msg'); if (e) e.textContent = t || ''; }
+      // 3줄 넘으면 잘리므로(헬퍼 줄 공간) 전체 문구는 title 로.
+      function setGameMsg(t) { const e = document.getElementById('mp-game-msg'); if (e) { e.textContent = t || ''; e.title = t || ''; } }
 
       function renderLobby() {
         const inRoom = !!mpRoom;
@@ -1270,7 +1275,7 @@
         }
         document.getElementById('mp-code-show').textContent = mpRoom.code;
         const ruleLine = document.getElementById('mp-rule-line');
-        if (ruleLine) ruleLine.textContent = RULE_KO[mpRoom.rulePreset] + (mpRoom.rulePreset === 'additional' ? ' · 헬퍼 없음' : '');
+        if (ruleLine) ruleLine.textContent = RULE_KO[mpRoom.rulePreset] + ' · 헬퍼 ' + (mpRoom.helperAllowed ? '허용' : '비허용'); // 웹 Lobby 와 동일
         document.getElementById('mp-players').innerHTML = mpPlayers
           .map((p) => {
             const host = p.isHost ? ' <span class="mp-tag">방장</span>' : '';
@@ -1343,7 +1348,29 @@
 
         document.getElementById('mp-total').innerHTML = `${scorecardTotal({ scores, masterCells: masterSet })}<small> 점</small>`;
         document.getElementById('mp-round').textContent = `${Math.min((room.round || 0) + 1, 12)} / 12`;
+        renderMpHelper(); // 헬퍼(#69) — 허용 방 · 내 차례에만
         if (mpSideOpen) renderSide();
+      }
+
+      // 헬퍼(#69) — '헬퍼 허용' 방 + 내 차례에서만. 테이블은 방 프리셋 기준(솔로 프리셋 아님 — 웹 잠복 버그 회피).
+      // 멀티는 방 단위로 리더보드·평균이 이미 제외되므로 솔로 helperUsed 는 건드리지 않는다. 표시 전용(RPC 없음).
+      function renderMpHelper() {
+        const line = document.getElementById('mp-helper-line');
+        const room = mpRoom;
+        if (!line || !room) return;
+        const myTurn = room.status === 'playing' && mySeat !== null && mySeat === room.currentSeat;
+        if (!room.helperAllowed || !myTurn) { setHelperLine(line, null); return; }
+        if (!helperOn) { setHelperLine(line, '헬퍼 허용 방 · H 로 켜기', '', true); return; }
+        const preset = room.rulePreset === 'additional' ? 'additional' : 'default';
+        helperLoad(preset);
+        const dice = room.dice && room.dice.length === 5 ? room.dice : null;
+        const rollsUsed = room.rollsUsed || 0;
+        const rolled = !!dice && rollsUsed > 0;
+        const adv = rolled ? helperAdvise(preset, { scores: mySc(), masterCells: myMaster() }, dice, 3 - rollsUsed) : null;
+        if (!adv) { setHelperLine(line, helperIdleText(helperTables[preset].status, rolled), '', true); return; }
+        const held = room.held && room.held.length === 5 ? room.held : [false, false, false, false, false];
+        decorateAdvice(adv, dice, held, '#mp-dice .die', '#mp-cats .cat');
+        setHelperLine(line, helperText(adv, dice), '예상 ' + Math.round(adv.expectedFinalScore));
       }
 
       // ── 렌더: 상대 점수 패널(백틱) ──
@@ -1405,8 +1432,11 @@
         const msg = document.getElementById('mp-lb-msg');
         const btn = document.getElementById('mp-lb-submit');
         const nm = document.getElementById('mp-lb-name');
-        if (msg) msg.textContent = '';
-        if (btn) btn.disabled = false;
+        // 헬퍼 허용 방은 방 단위로 리더보드 등록 제외(웹 MpGameOver 와 동일 — 실제로 헬퍼를 봤는지와 무관).
+        const blocked = !!(mpRoom && mpRoom.helperAllowed);
+        if (nm) nm.style.display = blocked ? 'none' : '';
+        if (btn) { btn.style.display = blocked ? 'none' : ''; btn.disabled = false; }
+        if (msg) msg.textContent = blocked ? '헬퍼 허용 방 — 리더보드 등록 제외' : '';
         mpLbSubmitted = false;
         try { if (nm) nm.value = localStorage.getItem('yd_lb_name') || localStorage.getItem('yd_mp_name') || ''; } catch (_) {}
         avgMpTryRecord(); // 정상 종료 1회 기록(멱등 — routeMpScreen 에서 이미 반영됐을 수 있음)
@@ -1433,6 +1463,7 @@
       }
       async function mpSubmitScore() {
         if (mpLbSubmitted) return;
+        if (mpRoom && mpRoom.helperAllowed) return; // 헬퍼 허용 방은 등록 제외 — UI 숨김 우회 대비 2차 방어
         const input = document.getElementById('mp-lb-name');
         const nm = input.value.trim();
         if (!nm) { input.focus(); return; }
@@ -1551,7 +1582,17 @@
         subscribeRoom(roomId);
         await refetchRoom();
       }
-      let mpCreatePreset = 'default'; // 방 만들기에서 고른 규칙(추가 룰은 헬퍼 없음 — 데스크톱은 어차피 헬퍼 미존재).
+      let mpCreatePreset = 'default'; // 방 만들기에서 고른 규칙.
+      // 방 만들기: 헬퍼 허용(방장 선택, 기본 OFF — 웹 Home 과 동일). 추가 룰 방은 서버가 강제로 비허용하므로 칩도 비활성.
+      let mpCreateHelper = false;
+      function syncMpHelperChip() {
+        const b = document.getElementById('mp-helper-toggle');
+        if (!b) return;
+        const ok = mpCreatePreset === 'default';
+        if (!ok) mpCreateHelper = false;
+        b.disabled = !ok;
+        b.textContent = ok ? (mpCreateHelper ? '헬퍼 허용' : '헬퍼 비허용') : '헬퍼 비허용 (추가 룰)';
+      }
       async function mpCreate() {
         const name = document.getElementById('mp-name').value.trim();
         if (!name) { document.getElementById('mp-name').focus(); return; }
@@ -1559,7 +1600,7 @@
         try {
           await ensureAnon();
           const data = await rpc('create_room', {
-            p_display_name: name, p_helper_allowed: false, p_max_players: 4, p_rule_preset: mpCreatePreset,
+            p_display_name: name, p_helper_allowed: mpCreateHelper && mpCreatePreset === 'default', p_max_players: 4, p_rule_preset: mpCreatePreset,
           });
           try { localStorage.setItem('yd_mp_name', name); localStorage.setItem('yd_mp_code', data.code); } catch (_) {}
           await enterRoom(data.room_id);
@@ -1638,7 +1679,14 @@
       document.getElementById('mp-rule-toggle').onclick = (e) => {
         mpCreatePreset = mpCreatePreset === 'default' ? 'additional' : 'default';
         e.currentTarget.textContent = RULE_KO[mpCreatePreset];
+        syncMpHelperChip(); // 추가 룰이면 헬퍼 칩 비활성
       };
+      document.getElementById('mp-helper-toggle').onclick = () => {
+        if (mpCreatePreset !== 'default') return;
+        mpCreateHelper = !mpCreateHelper;
+        syncMpHelperChip();
+      };
+      syncMpHelperChip();
       document.getElementById('mp-join').onclick = mpJoin;
       document.getElementById('mp-start').onclick = mpStart;
       document.getElementById('mp-roll').onclick = mpRoll;
@@ -1694,6 +1742,8 @@
             setSideSeat(seats[idx]);
             return;
           }
+          // 헬퍼 토글(H) — 턴과 무관한 선호 설정. 채팅·입력란 가드 뒤라 타이핑 중엔 발동하지 않는다.
+          if (isHelperKey(e)) { e.preventDefault(); toggleHelper(); return; }
           const room = mpRoom;
           if (!room) return;
           const myTurn = mySeat !== null && mySeat === room.currentSeat;
