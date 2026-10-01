@@ -21,10 +21,11 @@ npm run generate-pwa-assets   # regenerate public/ icons from public/icon.svg
 
 Run a single test: `npx vitest run src/engine/probability.test.ts` (or `-t "<name pattern>"` for one case).
 
-Desktop tray app (fully independent — its own `package.json`/`node_modules`, no link to the web build):
+Desktop tray app (own `package.json`/`node_modules`; runtime is self-contained, but `npm start`/`npm run dist` bundle `../src/engine` into `vendor/yd-engine.js` via esbuild and ship `../public/V*.bin` through electron-builder `extraResources`):
 ```bash
 cd desktop && npm install && npm start    # run the Electron tray app
 cd desktop && npm run dist                 # build installer → desktop/release/*.exe
+cd desktop && npm run test:helper          # helper renderer tests (hidden window, real popup.html)
 ```
 
 ## The helper engine (the core, non-obvious part)
@@ -41,6 +42,7 @@ The helper computes a **true whole-game optimal expected value** via a two-stage
 - **The state packing in `src/core/stateIndex.ts` (`packState`, `UPPER_LEVELS`) is the byte layout of V.bin.** Precompute and runtime must agree exactly.
 - **Changing any field of `RuleConfig` (`DEFAULT_RULES` in `rules.ts`) invalidates V.bin.** You must rerun `npm run build:table` or the helper's advice will be wrong but plausible. `prebuild` regenerates V.bin before every `npm run build`, but `npm run dev` uses the committed `public/V.bin` as-is.
 - `src/core/dice.ts` holds the static multiset combinatorics (hand/keep enumeration, transition probabilities) shared by precompute and runtime — treat its index mappings as a frozen contract too.
+- The tray app ships the **committed** `public/V*.bin` (desktop CI doesn't regenerate them; `desktop/scripts/build-engine.cjs` only size/sanity-checks). After any rules/index change, regenerate **and commit** both tables, or the tray helper will be wrong but plausible. The tray re-implements the helper *gating* (`helperUsed`, helper-allowed rooms) inline in `desktop/popup.html` — keep it in sync with `gameStore.ts`/`MpGameOver.tsx`.
 
 `src/core/rules.ts` is the single source of truth for categories, scoring rules, and dice/roll counts — `core`, `engine`, `precompute`, and `ui` all import from it.
 
@@ -59,7 +61,7 @@ src/precompute/  Node-only V.bin builder
 
 ### Stores (Zustand)
 - `appStore.ts` — lightweight client routing via a `screen` enum (`home`/`solo`/`lobby`/`mpgame`/`leaderboard`); `main.tsx` switches on it. No react-router.
-- `gameStore.ts` — solo game state, settings, theme, and the loaded `advisor`. Tracks `helperUsedThisGame` (gates leaderboard eligibility — helper-assisted scores are flagged). `loadTable()` lazy-loads V.bin.
+- `gameStore.ts` — solo game state, settings, theme, and the loaded `advisor`. Tracks `helperUsedThisGame` (gates leaderboard eligibility — helper-assisted scores are blocked from submission client-side; `submit_score` has no helper field). `loadTable()` lazy-loads V.bin.
 - `multiplayerStore.ts` — read-only model of server state + thin RPC wrappers + Realtime subscription (see below).
 - `useAdvice.ts` / `useBoard.ts` — hooks bridging stores to UI.
 
