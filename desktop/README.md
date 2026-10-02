@@ -24,6 +24,10 @@ npm run dist
 이름 고정). 실행하면 설치되고(시작 메뉴·바탕화면 바로가기 생성), 처음 실행 시 **부팅 자동 실행이 켜집니다**.
 메뉴에서 끄고 켤 수 있습니다.
 
+`npm run dist` 는 먼저 `predist`(= `build:engine`)로 헬퍼 엔진을 `vendor/yd-engine.js` 로 번들하고 `../public/V*.bin` 을
+동봉하므로 **저장소 전체**(루트 `src/`·`public/`)가 있어야 합니다 — `desktop/` 만 떼어서는 빌드되지 않습니다(루트 `npm install` 은
+불필요). 테이블은 **커밋된 파일**을 그대로 쓰니, 룰을 바꿨다면 루트에서 재생성·커밋한 뒤 빌드하세요.
+
 > **배포(GitHub Releases)** — 웹 홈의 *앱으로 받기 → 트레이 앱* 버튼은 고정 자산
 > `releases/latest/download/YachtDice-Tray-Setup.exe` 를 가리킵니다([`src/ui/DownloadCards.tsx`](../src/ui/DownloadCards.tsx)).
 >
@@ -100,6 +104,8 @@ npm run test:helper  # 헬퍼 렌더러 테스트 — 숨은 창에서 실제 po
 - **개발 모드(`npm start`)에선 비활성**입니다 — `app.isPackaged` 가 true 인 설치본에서만 동작합니다.
 - 버전 비교는 `package.json` 의 `version`(semver) 기준이므로, 새 릴리스를 낼 땐 **버전을 반드시 올려야** 합니다.
 - 동작 전제는 릴리스에 `latest.yml` 이 함께 올라가는 것입니다(위 *배포* 참고). 릴리스 태그 규약은 `tray-vX.Y.Z`.
+- 웹 버전 태그 `web-vX.Y.Z` 는 **태그만** 답니다 — Release 로 만들면 `releases/latest` 가 그쪽으로 바뀌어 업데이트 감지와
+  다운로드 링크가 깨집니다. 발행 절차는 [`CONTRIBUTING.md`](../CONTRIBUTING.md#트레이-앱-릴리스) 참고.
 
 ## 게임 (popup.html)
 최소 요트다이스 — 주사위 5개, 턴당 3회 굴림(보관 토글), 12 카테고리 점수 + 상단

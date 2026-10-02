@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-01-desktop-helper-design.md` (이슈 #69)
 
+**Status:** ✅ 완료 — 전 태스크 구현·리뷰 후 PR #70(`1d32932`)으로 머지, tray-v0.10.0 · web-v0.8.2 로 출시(PR #79, 2026-10-02). 후속: #71·#72(마일스톤 #10).
+
 ## Global Constraints
 
 - 엔진은 **웹 소스를 번들**한다 — DP·카테고리 순서·테이블 인덱싱을 popup.html 에 손으로 옮기지 않는다. 트레이 채점 코드는 기존 사본 유지.

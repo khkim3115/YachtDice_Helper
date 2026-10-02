@@ -33,7 +33,8 @@
    - 항목을 추가하면 `LATEST_VERSION` 이 자동 갱신된다 →
      **이 순간 사용자에게 헤더 NEW 배지 + (재방문 사용자엔) 자동 모달이 뜬다.**
    - 버전 문자열은 `package.json` 과 **분리된 웹 공개 버전**(예: `0.5.0`). semver 권장.
-3. 같은 버전으로 git 태그 `web-vX.Y.Z` 를 단다(데스크톱 트레이의 `tray-vX.Y.Z` 와 평행).
+3. 같은 버전으로 annotated 태그 `web-vX.Y.Z` 를 그 배포(머지) 커밋에 달아 push 한다(데스크톱 트레이의 `tray-vX.Y.Z` 와 평행).
+   **태그만** 단다 — `web-v*` 로 GitHub Release 를 만들지 않는다([트레이 앱 릴리스](#트레이-앱-릴리스) 경고 참고).
 
 ### 패치노트 항목 작성 요령
 
@@ -49,8 +50,32 @@
 
 루트 `package.json` 의 `version` 은 사용자에게 노출되지 않는다 — 패치노트 버전이 웹의 단일 진실원본.
 
+## 트레이 앱 릴리스
+
+트레이 앱은 `main` 머지로 배포되지 않는다 — **GitHub Release 발행**이 빌드·배포 트리거다
+([`desktop-release.yml`](.github/workflows/desktop-release.yml)). 기존 설치본은 그 릴리스의 `latest.yml` 을 보고
+자동 업데이트한다([`desktop/README.md`](desktop/README.md) *자동 업데이트* 참고).
+
+1. **버전 범프 PR** — `desktop/package.json` 과 `desktop/package-lock.json` 의 `version` 을 함께 올린다.
+   자동 업데이트는 이 semver 를 비교하므로 **안 올리면 기존 설치본이 새 버전을 받지 못한다.**
+   웹 패치노트도 함께 낸다면 `changelog.ts` 항목을 같은 PR 에 묶는다(배치 릴리스).
+2. (권장) **드라이런** — `gh workflow run desktop-release.yml --ref <브랜치>`(workflow_dispatch).
+   실제 Windows·macOS 러너에서 설치 파일·`latest.yml` 생성과 헬퍼 엔진/가치 테이블 동봉을 검증한다(릴리스 첨부 단계는 건너뜀).
+   워크플로 아티팩트로 받은 `latest.yml` 의 `version` 이 새 버전인지도 확인한다.
+3. **squash 머지** 후 머지 커밋에 annotated 태그 `tray-vX.Y.Z`(웹 버전도 올렸다면 `web-vX.Y.Z` 도)를 달아 push 한다.
+4. **발행** — `gh release create tray-vX.Y.Z --verify-tag --latest --title … --notes-file …`.
+   draft·prerelease 는 자동 업데이트가 보지 못하니 정식으로 발행한다. `--target <SHA>` 대신 태그를 먼저 push 하고
+   태그 이름으로 만든다. 웹 패치노트를 묶었다면 머지 즉시 공지가 뜨므로 발행을 미루지 않는다.
+5. **확인** — CI 가 릴리스에 `latest.yml` · `YachtDice-Tray-Setup.exe` · `.blockmap` · `YachtDice-Tray.dmg` 4종을 첨부했는지 본다.
+
+> ⚠️ GitHub Release 는 `tray-v*` 만 만든다. `web-v*` 로 Release 를 만들면 `releases/latest` 가 그쪽으로 바뀌어
+> 웹의 트레이 다운로드 링크(`releases/latest/download/…`)와 설치본 자동 업데이트가 깨진다.
+
 ## PR 전 체크
 
 - `npm run typecheck`
 - `npm test`
+- `desktop/` 를 바꿨다면 `cd desktop && npm run test:helper` — 숨은 창에서 실제 `popup.html` 의 헬퍼를 검증한다(화면 표시 없음).
+- 룰·상태 인덱스(`src/core/rules.ts` · `stateIndex.ts` · `dice.ts`)를 바꿨다면 `npm run build:table` · `npm run build:table:additional`
+  로 가치 테이블을 다시 만들어 **커밋**한다 — 웹 배포는 `prebuild` 가 재생성하지만 트레이 앱은 커밋된 `public/V*.bin` 을 그대로 동봉한다.
 - 로직 변경은 **테스트 먼저**(TDD 권장). 순수 로직은 `src/**/*.test.ts`(node 환경).
