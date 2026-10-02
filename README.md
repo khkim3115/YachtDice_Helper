@@ -17,7 +17,8 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-> 헬퍼용 가치 테이블 `public/V.bin` 은 저장소에 포함되어 있습니다. 없거나 룰을 바꿨다면 재생성하세요:
+> 헬퍼용 가치 테이블 `public/V.bin`·`public/V.additional.bin` 은 저장소에 포함되어 있습니다. 없거나 룰을 바꿨다면 재생성하세요
+> (트레이 앱은 **커밋된** 테이블을 설치 파일에 그대로 동봉하므로 재생성 후 **커밋**까지 해야 합니다):
 >
 > ```bash
 > npm run build:table              # 약 10초, public/V.bin 생성 (기본 룰셋)
@@ -107,8 +108,8 @@ npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, fa
 - **데스크탑 앱 (PWA)** — `⬇ 앱 설치` 버튼으로 브라우저에 설치(위 PWA 섹션과 동일, 작업표시줄/시작 메뉴에서 실행).
   설치 프롬프트를 쓸 수 없는 브라우저에서는 주소창 설치 아이콘(⊕)/메뉴 사용을 안내합니다.
 - **트레이 앱 (Windows)** — `⬇ 다운로드` 버튼이 시스템 트레이에 상주하는 미니 Electron 버전 설치파일을 받습니다.
-  빌드·실행·배포는 [`desktop/README.md`](desktop/README.md) 참고.
-- **트레이 앱 (macOS)** — `⬇ 다운로드` 버튼으로 메뉴 막대에 상주하는 `.dmg` 버전을 받습니다(Windows판과 동일한 항상 위·투명도 조절·무채색 위장).
+  웹과 같은 **최적-EV 헬퍼**(H 키, 오프라인 동작)를 포함하며, 빌드·실행·배포는 [`desktop/README.md`](desktop/README.md) 참고.
+- **트레이 앱 (macOS)** — `⬇ 다운로드` 버튼으로 메뉴 막대에 상주하는 `.dmg` 버전을 받습니다(Windows판과 동일한 항상 위·투명도 조절·무채색 위장·헬퍼).
   무료 배포라 코드 서명이 없어 첫 실행만 *설정 ▸ 개인정보 보호 및 보안 ▸ 무시하고 열기* 한 번이 필요합니다.
 - **미니 창 (무설치, Chromium 계열)** — 게임 화면 헤더의 🔳 미니 창 버튼으로 항상 위에 뜨는 작은 저채도 패널(Document PiP)을
   설치 없이 바로 띄웁니다. Windows·macOS·Linux 의 Chrome·Edge 지원(Safari·Firefox 미지원).
@@ -116,6 +117,8 @@ npm run generate-pwa-assets   # public/ 에 pwa-*.png, maskable, apple-touch, fa
 > 트레이 설치파일은 GitHub Releases 의 고정 자산 이름 — Windows **`YachtDice-Tray-Setup.exe`**(`TRAY_EXE_URL`),
 > macOS **`YachtDice-Tray.dmg`**(`TRAY_DMG_URL`) — 으로 `releases/latest/download/…` 에서 받습니다([`DownloadCards.tsx`](src/ui/DownloadCards.tsx)).
 > 데스크톱 빌드(`desktop/`)가 이 이름으로 산출물을 내도록 설정돼 있으니, 릴리스에 **그 이름 그대로 업로드**하면 링크가 유지됩니다.
+> Release 는 `tray-vX.Y.Z` 로만 발행합니다 — 웹 버전 `web-vX.Y.Z` 는 태그만 달고 Release 로 만들지 않습니다(`releases/latest` 가
+> 바뀌면 이 링크와 트레이 자동 업데이트가 깨짐). 발행 절차는 [`CONTRIBUTING.md`](CONTRIBUTING.md#트레이-앱-릴리스) 참고.
 
 ## 게임 규칙 (한국 모바일 앱 관례)
 

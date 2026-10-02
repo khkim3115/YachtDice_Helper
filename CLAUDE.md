@@ -92,6 +92,8 @@ In-app patch notes live in `src/data/changelog.ts` — the single source of trut
 
 See `CONTRIBUTING.md`. Trunk-based: one issue → one `<type>/<issue>-<slug>` branch off `main` → PR (`Closes #n`) → **squash merge** (every `main` push auto-deploys). Deploy and *announce* are separate concerns: announce by prepending a `CHANGELOG` entry (bump the web-facing version, tag `web-vX.Y.Z`) once a batch of merges is worth a patch note. The web version lives in `changelog.ts`; the desktop tray versions independently in `desktop/package.json` (`tray-vX.Y.Z`).
 
+The tray ships by **publishing a GitHub Release**, not by merging: bump `desktop/package.json` + `package-lock.json` (electron-updater compares that semver; no bump = no update) → optional dry run `gh workflow run desktop-release.yml --ref <branch>` → squash merge → annotated tag(s) on the merge commit → `gh release create tray-vX.Y.Z --verify-tag --latest`, after which `desktop-release.yml` attaches `latest.yml`/exe/blockmap/dmg. **`web-vX.Y.Z` is a bare tag — never create a GitHub Release for it**: it would become `/releases/latest` and break tray auto-update plus the `releases/latest/download/…` links. Full steps in `CONTRIBUTING.md` (트레이 앱 릴리스).
+
 ## Sanity checks (in tests)
 
 `probability.test.ts` cross-checks combo odds against known literature values; `solver.test.ts` verifies simulated optimal play converges to the table's predicted mean. For this default ruleset the **optimal expected average ≈ 191.8** (printed by `build:table` from the empty-card state). A large drift there signals a broken rule/index change.
